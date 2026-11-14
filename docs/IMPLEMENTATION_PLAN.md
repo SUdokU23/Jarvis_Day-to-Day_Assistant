@@ -1,6 +1,6 @@
 # Jarvis backlog implementation plan
 
-Prepared 2026-11-14, Europe/Sofia. Status: planned; implementation not started.
+Prepared 2026-11-14, Europe/Sofia. Updated 2026-11-14: #1 implemented on an issue branch; verification and remaining limits are recorded in `VERIFICATION.md`. #2–#12 remain planned.
 
 ## Evidence and scope
 
@@ -189,7 +189,7 @@ Verification: rejected navigation/window opening/unsafe URLs/untrusted IPC; insp
 
 ## Completion tracking and estimates
 
-All items remain **not started** in this local plan. Suggested sizes are relative planning judgments, not GitHub field values or time commitments. Runtime lifecycle and Windows cleanup are the highest uncertainty; schedule actual dates only after the scaffold and runtime feasibility checks. The W1 prefix is the source milestone label, not evidence this can be completed within a calendar week.
+Issue #1 is implemented on `feat/1-desktop-scaffold`, pending PR review and human visual/interactive checks; see [verification evidence](VERIFICATION.md). The live issue was rechecked before implementation. An initial documentation-only commit bootstrapped the empty remote `main`; the issue branch was created after fetching and pulling it. #2–#12 remain **not started**. Suggested sizes are relative planning judgments, not GitHub field values or time commitments. Runtime lifecycle and Windows cleanup are the highest uncertainty. The W1 prefix is the source milestone label, not evidence this can be completed within a calendar week.
 
 For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. Keep GitHub state unchanged unless the user requests updates. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
 
@@ -206,4 +206,4 @@ These need their own issues and acceptance criteria before being treated as comm
 
 ## Resume instructions
 
-Read workspace `AGENTS.md` and `MEMORY.md`, recheck board/issue changes, then start #1. Preserve the root architecture specification. Do not begin Gmail/search/voice/export work by inferring it from placeholders. Keep main/preload security and owned/external runtime separation intact throughout.
+Read workspace `AGENTS.md` and `MEMORY.md`, recheck live issues and the #1 PR before starting #2. Always fetch/pull latest `main`, branch from it for each issue, verify, and prepare a PR targeting `main`. Preserve the root architecture specification. Do not begin Gmail/search/voice/export work by inferring it from placeholders. Keep main/preload security and owned/external runtime separation intact throughout.

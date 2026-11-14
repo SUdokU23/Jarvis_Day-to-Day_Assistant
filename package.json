@@ -1,0 +1,27 @@
+{
+  "name": "jarvis-day-to-day-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Windows desktop assistant",
+  "main": "electron/main.cjs",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build",
+    "start": "electron .",
+    "smoke": "electron . --smoke-test"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.5",
+    "@vitejs/plugin-react": "6.3.0",
+    "electron": "45.3.2",
+    "tailwindcss": "4.3.5",
+    "vite": "8.3.8"
+  }
+}
