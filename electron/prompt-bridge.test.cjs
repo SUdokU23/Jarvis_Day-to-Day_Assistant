@@ -103,3 +103,9 @@ test('returns a safe error when the local connection drops', async (t) => {
   assert.equal(result.error.code, 'N8N_UNAVAILABLE');
   assert.equal(result.error.retryable, true);
 });
+
+test('normalizes JSON string replies without changing their formatting', async (t) => {
+  const output = '  **Hello**\n';
+  const handle = await withWebhook(t, (_request, response) => response.end(JSON.stringify(output)));
+  assert.deepEqual(await handle(sender, 'Hello'), { success: true, data: { output } });
+});

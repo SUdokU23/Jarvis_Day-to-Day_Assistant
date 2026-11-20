@@ -77,24 +77,28 @@ async function createWindow() {
       requestAnimationFrame(() => {
         const resized = resize.getAttribute('aria-valuenow') === '296';
         const initialHeight = input.clientHeight;
-        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Hello Jarvis\nSecond line\nThird line');
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Hello Jarvis\nSecond line\n' + 'x'.repeat(10_000));
         input.dispatchEvent(new Event('input', { bubbles: true }));
         requestAnimationFrame(() => {
           const expanded = input.clientHeight > initialHeight;
-          input.form.requestSubmit();
+          const key = (shiftKey) => new KeyboardEvent('keydown', { key: 'Enter', shiftKey, bubbles: true, cancelable: true });
+          const composing = new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true });
+          const shiftPreserved = input.dispatchEvent(key(true));
+          const compositionPreserved = input.dispatchEvent(composing);
+          const enterSent = !input.dispatchEvent(key(false));
           const deadline = Date.now() + 3000;
           function checkError() {
             const error = document.querySelector('[role=alert]');
-            if (error) {
-              resolve({ resized, expanded, badgeCount, microphoneDisabled, draftPreserved: input.value.startsWith('Hello Jarvis') });
-            } else if (Date.now() > deadline) reject(new Error('Expected the unavailable prompt service error'));
+            if (error?.textContent.includes('between 1 and 10000') && !document.querySelector('.pending')) {
+              resolve({ resized, expanded, badgeCount, microphoneDisabled, shiftPreserved, compositionPreserved, enterSent, draftPreserved: input.value.startsWith('Hello Jarvis') });
+            } else if (Date.now() > deadline) reject(new Error('Expected validation error and loading cleanup'));
             else requestAnimationFrame(checkError);
           }
           checkError();
         });
       });
     })`);
-    if (!shell.resized || !shell.expanded || shell.badgeCount !== 2 || !shell.microphoneDisabled || !shell.draftPreserved) {
+    if (!shell.resized || !shell.expanded || shell.badgeCount !== 2 || !shell.microphoneDisabled || !shell.draftPreserved || !shell.shiftPreserved || !shell.compositionPreserved || !shell.enterSent) {
       throw new Error(`Chat shell smoke check failed: ${JSON.stringify(shell)}`);
     }
     window.setContentSize(600, 500);

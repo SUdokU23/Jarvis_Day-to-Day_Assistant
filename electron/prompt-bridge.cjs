@@ -41,10 +41,11 @@ async function sendToN8n(url, prompt, timeoutMs) {
     }
 
     const result = await readResponse(response.body);
-    if (typeof result?.output === 'string' && result.output.trim()) {
-      return { success: true, data: { output: result.output } };
+    const output = typeof result === 'string' ? result : result?.output;
+    if (typeof output === 'string' && output.trim()) {
+      return { success: true, data: { output } };
     }
-    return failure('INVALID_RESPONSE', 'Configure the n8n webhook to return a JSON object with a non-empty output string.');
+    return failure('INVALID_RESPONSE', 'Configure the n8n webhook to return a non-empty JSON string or an object with a non-empty output string.');
   } catch (error) {
     if (controller.signal.aborted) {
       return failure('WEBHOOK_TIMEOUT', 'n8n took too long to respond. Check the workflow execution before retrying.', true);

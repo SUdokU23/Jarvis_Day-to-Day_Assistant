@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUp, AudioLines, Bot, LoaderCircle, MessageSquare, Mic, PanelLeft, Plus, Settings, X } from 'lucide-react';
+import { AudioLines, Bot, LoaderCircle, MessageSquare, PanelLeft, Plus, Settings, X } from 'lucide-react';
 import Markdown from 'react-markdown';
+import ChatInput from './components/ChatInput.jsx';
 
 const initialConversation = { id: 'initial', title: 'New conversation', messages: [] };
 
@@ -17,6 +18,7 @@ export default function App({ sendPrompt = unavailablePrompt }) {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const history = useRef(null);
   const composer = useRef(null);
+  const inFlight = useRef(new Set());
   const settings = useRef(null);
   const menu = useRef(null);
   const dismiss = useRef(null);
@@ -32,12 +34,6 @@ export default function App({ sendPrompt = unavailablePrompt }) {
     narrow.addEventListener('change', syncSidebar);
     return () => narrow.removeEventListener('change', syncSidebar);
   }, []);
-
-  useLayoutEffect(() => {
-    const input = composer.current;
-    input.style.height = 'auto';
-    input.style.height = `${input.scrollHeight}px`;
-  }, [draft]);
 
   useLayoutEffect(() => {
     history.current.scrollTop = history.current.scrollHeight;
@@ -69,9 +65,9 @@ export default function App({ sendPrompt = unavailablePrompt }) {
     setSidebarWidth(Math.min(380, Math.max(220, width)));
   }
 
-  function appendExchange(id, prompt, output) {
+  function appendExchange(id, requestId, prompt, output) {
     const messages = [
-      { id: crypto.randomUUID(), role: 'user', content: prompt },
+      { id: requestId, role: 'user', content: prompt },
       { id: crypto.randomUUID(), role: 'assistant', content: output },
     ];
     setConversations((all) => all.map((conversation) => {
@@ -86,21 +82,27 @@ export default function App({ sendPrompt = unavailablePrompt }) {
 
   async function submit(event) {
     event.preventDefault();
-    const prompt = draft.trim();
-    if (!prompt || request?.pending) return;
     const id = activeId;
+    const prompt = draft.trim();
+    if (!prompt || inFlight.current.has(id)) return;
+
+    const requestId = crypto.randomUUID();
+    inFlight.current.add(id);
     setRequests((all) => ({ ...all, [id]: { pending: true, prompt } }));
+    let error;
     try {
       const result = await sendPrompt(prompt);
-      if (!result.success) {
-        setRequests((all) => ({ ...all, [id]: { error: result.error.message } }));
-        return;
+      if (result.success) {
+        appendExchange(id, requestId, prompt, result.data.output);
+        setDrafts((all) => all[id] === draft ? { ...all, [id]: '' } : all);
+      } else {
+        error = result.error.message;
       }
-      appendExchange(id, prompt, result.data.output);
-      setDrafts((all) => all[id] === draft ? { ...all, [id]: '' } : all);
-      setRequests((all) => ({ ...all, [id]: null }));
     } catch {
-      setRequests((all) => ({ ...all, [id]: { error: 'The request failed. Try again.' } }));
+      error = 'The request failed. Try again.';
+    } finally {
+      inFlight.current.delete(id);
+      setRequests((all) => ({ ...all, [id]: error ? { error } : null }));
     }
   }
 
@@ -187,32 +189,14 @@ export default function App({ sendPrompt = unavailablePrompt }) {
             {request?.pending && <p className="pending" role="status"><LoaderCircle size={18} aria-hidden="true" /> Waiting for Jarvis…</p>}
           </div>
         </div>
-        <form className="composer-area" onSubmit={submit}>
-          {request?.error && <p className="request-error" role="alert">{request.error}</p>}
-          <div className="composer">
-            <textarea
-              ref={composer}
-              rows={1}
-              value={draft}
-              aria-label="Message Jarvis"
-              placeholder="Message Jarvis"
-              onChange={(event) => {
-                const value = event.target.value;
-                setDrafts((all) => ({ ...all, [activeId]: value }));
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
-                event.preventDefault();
-                event.currentTarget.form.requestSubmit();
-              }}
-            />
-            <span className="mic-control">
-              <button className="icon-button" type="button" disabled aria-label="Microphone (coming soon)"><Mic size={19} /></button>
-              <small>Coming soon</small>
-            </span>
-            <button className="send-button" type="submit" disabled={!draft.trim() || request?.pending} aria-label="Send message"><ArrowUp size={21} /></button>
-          </div>
-        </form>
+        <ChatInput
+          inputRef={composer}
+          draft={draft}
+          pending={request?.pending}
+          error={request?.error}
+          onChange={(value) => setDrafts((all) => ({ ...all, [activeId]: value }))}
+          onSubmit={submit}
+        />
       </main>
       <dialog ref={settings} className="settings-dialog" aria-labelledby="settings-title">
         <h2 id="settings-title">Settings</h2>

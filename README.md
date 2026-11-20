@@ -114,11 +114,10 @@ Electron trims it, checks the 10,000-character limit, and POSTs
 The port uses the same `JARVIS_N8N_PORT` setting as the n8n supervisor.
 The request has a 120-second deadline and a 1 MiB response limit.
 
-An active workflow should return JSON with a non-empty `output` string.
+An active workflow should return a non-empty JSON string or a JSON object with a non-empty `output` string.
 The bridge returns `{success:true,data:{output}}` or
 `{success:false,error:{code,message,retryable}}`. Jarvis does not log prompt
-contents or upstream response bodies. See the backlog for the composer
-integration (#7) and production workflow (#9).
+contents or upstream response bodies. The production workflow is tracked in issue #9.
 
 ## Contribution workflow
 
