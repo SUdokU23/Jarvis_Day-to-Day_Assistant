@@ -57,8 +57,12 @@ button:disabled { cursor: default; }
 .conversation-list [aria-current="true"] { background: #304238; }
 .sidebar-footer { border-top: 1px solid #353e38; padding-top: 12px; }
 .services { display: grid; gap: 8px; padding: 0 8px; font-size: .875rem; }
-.services li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.services li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; }
+.services small { grid-column: 1 / -1; color: #e4b9af; }
 .badge { color: #c6cfc9; background: #303833; border-radius: 20px; padding: 3px 9px; font-size: .75rem; }
+.badge[data-state="starting"] { color: #f4dda4; background: #44351d; }
+.badge[data-state="ready"] { color: #b9ebce; background: #244431; }
+.badge[data-state="failed"] { color: #ffcdc4; background: #4b2925; }
 .settings-button { width: 100%; padding: 10px 8px; margin-top: 10px; border-radius: 9px; }
 .sidebar-resize { position: absolute; z-index: 1; right: 0; top: 0; bottom: 0; width: 8px; cursor: col-resize; touch-action: none; }
 .sidebar-resize:hover, .sidebar-resize:focus-visible { background: #668b77; outline-offset: -2px; }

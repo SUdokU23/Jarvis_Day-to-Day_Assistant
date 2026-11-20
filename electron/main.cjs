@@ -1,23 +1,53 @@
-const { app, BrowserWindow, dialog, session } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { OllamaSidecar } = require('./sidecars.js');
 
 const { createN8nSidecar } = require('./n8n.cjs');
 const { createPromptHandler } = require('./prompt-bridge.cjs');
+const { createChatSmokeFixture } = require('./chat-smoke.cjs');
 
 const smoke = process.argv.includes('--smoke-test');
-const sidecars = [new OllamaSidecar(), createN8nSidecar(app.getPath('userData'))];
+const smokeOllamaStartup = smoke ? Promise.withResolvers() : null;
+let smokeOllamaHealth = 'ready';
+const ollama = new OllamaSidecar(smoke ? {
+  probe: async () => {
+    await smokeOllamaStartup.promise;
+    return smokeOllamaHealth;
+  },
+  monitorIntervalMs: 100,
+} : undefined);
+const sidecars = [ollama, createN8nSidecar(app.getPath('userData'))];
+const windows = new Set();
+let statusRevision = 0;
 let quitting = false;
 let cleanupComplete = false;
 
+function serviceSnapshot() {
+  return {
+    revision: statusRevision,
+    services: sidecars.map(({ status: { service, state, code } }) => ({ service, state, code })),
+  };
+}
+
 for (const sidecar of sidecars) {
   const label = `[${sidecar.status.service}]`;
-  sidecar.on('status', (status) => console.info(label, status));
+  sidecar.on('status', (status) => {
+    console.info(label, status);
+    statusRevision += 1;
+    const snapshot = serviceSnapshot();
+    for (const window of windows) {
+      const contents = window.webContents;
+      if (!contents.isDestroyed() && contents.getURL() === rendererUrl) {
+        contents.send('service-status:changed', snapshot);
+      }
+    }
+  });
   sidecar.on('diagnostic', (diagnostic) => console.info(label, diagnostic));
 }
 
 function stopSidecars() {
+  smokeOllamaStartup?.resolve();
   return Promise.all(sidecars.map((sidecar) => sidecar.stop()));
 }
 const devUrl = !app.isPackaged && process.env.JARVIS_DEV_URL;
@@ -27,6 +57,79 @@ if (devUrl) {
   const url = new URL(devUrl);
   if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password) {
     throw new Error('Development renderer must use the loopback Vite server.');
+  }
+}
+const rendererUrl = devUrl ? new URL(devUrl).href : builtUrl;
+
+ipcMain.handle('service-status:get', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!windows.has(window) || event.senderFrame !== event.sender.mainFrame
+      || event.senderFrame?.url !== rendererUrl) {
+    throw new Error('Service status is unavailable to this frame.');
+  }
+  return serviceSnapshot();
+});
+
+async function checkServiceStatus(window) {
+  const contents = window.webContents;
+  const waitForBadge = (state) => contents.executeJavaScript(`new Promise((resolve, reject) => {
+    const deadline = Date.now() + 5000;
+    function check() {
+      const badge = document.querySelector('[data-service=ollama] .badge');
+      const matches = badge?.dataset.state === ${JSON.stringify(state)};
+      if (matches && (${JSON.stringify(state)} !== 'failed' || badge.parentElement.querySelector('small')?.textContent)) resolve();
+      else if (Date.now() >= deadline) reject(new Error('Ollama badge did not reach ${state}'));
+      else setTimeout(check, 25);
+    }
+    check();
+  })`);
+
+  await waitForBadge('stopped');
+  ollama.start();
+  await waitForBadge('starting');
+  smokeOllamaStartup.resolve();
+  await waitForBadge('ready');
+
+  const lateSnapshot = await contents.executeJavaScript('window.jarvis.getServiceStatus()');
+  if (lateSnapshot.services.length !== 2
+      || lateSnapshot.services.find(({ service }) => service === 'ollama')?.state !== 'ready') {
+    throw new Error('Late service snapshot is missing the current status');
+  }
+
+  await contents.executeJavaScript(`(() => {
+    window.statusSmoke = { removedCalls: 0, received: [] };
+    window.jarvis.onServiceStatus(() => window.statusSmoke.removedCalls++)();
+    window.statusSmoke.unsubscribe = window.jarvis.onServiceStatus((...args) => {
+      window.statusSmoke.received.push({ count: args.length, snapshot: args[0] });
+    });
+  })()`);
+  smokeOllamaHealth = 'absent';
+  await waitForBadge('failed');
+  smokeOllamaHealth = 'ready';
+  await waitForBadge('ready');
+  await contents.executeJavaScript(`new Promise((resolve, reject) => {
+    document.querySelector('aside [aria-label="Hide sidebar"]').click();
+    requestAnimationFrame(() => {
+      if (document.querySelector('aside')) return reject(new Error('Sidebar did not close'));
+      document.querySelector('[aria-label="Show sidebar"]').click();
+      resolve();
+    });
+  })`);
+  await waitForBadge('ready');
+  await ollama.stop();
+  await waitForBadge('stopped');
+
+  const events = await contents.executeJavaScript(`(() => {
+    const { removedCalls, received, unsubscribe } = window.statusSmoke;
+    unsubscribe();
+    delete window.statusSmoke;
+    return { removedCalls, received };
+  })()`);
+  const states = events.received.map(({ snapshot }) =>
+    snapshot.services.find(({ service }) => service === 'ollama').state);
+  if (events.removedCalls || events.received.some(({ count }) => count !== 1)
+      || !['failed', 'ready', 'stopped'].every((state) => states.includes(state))) {
+    throw new Error('Status event payload or unsubscribe check failed');
   }
 }
 
@@ -42,10 +145,20 @@ async function createWindow() {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event) => event.preventDefault());
   window.webContents.on('will-attach-webview', (event) => event.preventDefault());
-  const rendererUrl = new URL(devUrl || builtUrl).href;
-  window.webContents.ipc.handle('send-prompt', createPromptHandler(rendererUrl));
-  await window.loadURL(rendererUrl);
-  if (smoke) {
+  windows.add(window);
+  window.once('closed', () => windows.delete(window));
+  const fixture = smoke ? await createChatSmokeFixture() : null;
+  try {
+    window.webContents.ipc.handle('send-prompt', fixture?.handler(rendererUrl) ?? createPromptHandler(rendererUrl));
+    await window.loadURL(rendererUrl);
+    if (fixture) await runSmoke(window, fixture);
+  } finally {
+    await fixture?.close();
+  }
+  if (smoke) app.quit();
+}
+
+async function runSmoke(window, fixture) {
     const result = await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
       const deadline = Date.now() + 10000;
       function check() {
@@ -101,6 +214,8 @@ async function createWindow() {
     if (!shell.resized || !shell.expanded || shell.badgeCount !== 2 || !shell.microphoneDisabled || !shell.draftPreserved || !shell.shiftPreserved || !shell.compositionPreserved || !shell.enterSent) {
       throw new Error(`Chat shell smoke check failed: ${JSON.stringify(shell)}`);
     }
+    await checkServiceStatus(window);
+    await fixture.check(window.webContents);
     window.setContentSize(600, 500);
     await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
       const deadline = Date.now() + 3000;
@@ -112,14 +227,14 @@ async function createWindow() {
       }
       check();
     })`);
-    console.log('SMOKE PASS', JSON.stringify({ ...result, ...shell, narrowSidebarCollapsed: true }));
-    app.quit();
-  }
+    console.log('SMOKE PASS', JSON.stringify({ ...result, ...shell, liveServiceStatus: true, narrowSidebarCollapsed: true, webhookTimeoutAndRetry: true }));
 }
 
 app.whenReady().then(async () => {
   if (quitting) return;
-  for (const sidecar of sidecars) sidecar.start();
+  for (const sidecar of sidecars) {
+    if (!smoke || sidecar !== ollama) sidecar.start();
+  }
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

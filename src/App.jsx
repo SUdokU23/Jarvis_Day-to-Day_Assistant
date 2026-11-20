@@ -4,6 +4,51 @@ import Markdown from 'react-markdown';
 import ChatInput from './components/ChatInput.jsx';
 
 const initialConversation = { id: 'initial', title: 'New conversation', messages: [] };
+const localServices = [['n8n', 'n8n'], ['ollama', 'Ollama']];
+const statusLabels = { starting: 'Starting', ready: 'Ready', failed: 'Failed', stopped: 'Stopped' };
+
+function failureHint(service, code) {
+  if (code === `${service}-not-found`) return 'Install the service or check its executable path.';
+  if (code === 'invalid-port') return 'Check the configured n8n port.';
+  if (code === 'endpoint-unhealthy' || code === 'port-in-use-or-unhealthy') return 'Check the local service and its port.';
+  if (code === 'managed-start-requires-windows') return 'Start the service manually.';
+  return 'Check the local service. The badge updates when it recovers.';
+}
+
+function ServiceStatus() {
+  const [snapshot, setSnapshot] = useState(null);
+
+  useEffect(() => {
+    const bridge = window.jarvis;
+    if (!bridge) return;
+    let active = true;
+    const accept = (next) => {
+      if (active) setSnapshot((current) => !current || next.revision > current.revision ? next : current);
+    };
+    const unsubscribe = bridge.onServiceStatus(accept);
+    bridge.getServiceStatus().then(accept, () => accept({ revision: -1, services: [] }));
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  return (
+    <ul className="services" aria-label="Local service status" aria-live="polite">
+      {localServices.map(([id, name]) => {
+        const service = snapshot?.services.find(({ service }) => service === id);
+        const label = statusLabels[service?.state] ?? (snapshot || !window.jarvis ? 'Unavailable' : 'Checking');
+        return (
+          <li key={id} data-service={id}>
+            <span>{name}</span>
+            <span className="badge" data-state={service?.state}>{label}</span>
+            {service?.state === 'failed' && <small>{failureHint(id, service.code)}</small>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 async function unavailablePrompt() {
   return { success: false, error: { message: 'The local prompt service is not configured yet.' } };
@@ -126,9 +171,7 @@ export default function App({ sendPrompt = unavailablePrompt }) {
             ))}
           </nav>
           <div className="sidebar-footer">
-            <ul className="services" aria-label="Local service status">
-              {['n8n', 'Ollama'].map((service) => <li key={service}><span>{service}</span><span className="badge">Unknown</span></li>)}
-            </ul>
+            <ServiceStatus />
             <button className="settings-button" type="button" onClick={() => settings.current.showModal()}><Settings size={18} /> Settings</button>
           </div>
           <div

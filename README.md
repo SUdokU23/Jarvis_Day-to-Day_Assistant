@@ -117,11 +117,16 @@ The request has a 120-second deadline and a 1 MiB response limit.
 An active workflow should return a non-empty JSON string or a JSON object with a non-empty `output` string.
 The bridge returns `{success:true,data:{output}}` or
 `{success:false,error:{code,message,retryable}}`. Jarvis does not log prompt
-contents or upstream response bodies. The production workflow is tracked in issue #9.
+contents or upstream response bodies.
+
+Import [the shared n8n workflow](workflows/base_agent.json) into the n8n
+instance listening on `JARVIS_N8N_PORT`. Follow the [workflow setup](docs/N8N_WORKFLOW.md)
+to configure local Ollama and publish the production webhook. See the
+[Windows smoke tests](docs/SMOKE_TESTS.md) for verification commands and results.
 
 ## Contribution workflow
 
-Before each issue, run `git fetch origin`, switch to `main`, and run
+Before each issue, recheck the live issue, run `git fetch origin`, switch to `main`, and run
 `git pull --ff-only origin main`. Create a new issue branch from that updated
 `main`. Preserve local changes.
 Implement and verify on the issue branch, then push it and open a draft pull

@@ -12,4 +12,10 @@ contextBridge.exposeInMainWorld('jarvis', Object.freeze({
       };
     }
   },
+  getServiceStatus: () => ipcRenderer.invoke('service-status:get'),
+  onServiceStatus(callback) {
+    const listener = (_event, snapshot) => callback(snapshot);
+    ipcRenderer.on('service-status:changed', listener);
+    return () => ipcRenderer.removeListener('service-status:changed', listener);
+  },
 }));
