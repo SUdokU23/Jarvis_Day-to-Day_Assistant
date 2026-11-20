@@ -1,8 +1,9 @@
 # Jarvis Day-to-Day Assistant
 
-Windows desktop foundation using Electron, React, Vite, and Tailwind CSS v4.
-Issue #1 establishes startup and the security boundary. Chat, n8n, and Ollama
-integration are subsequent backlog issues; they are not required to launch this scaffold.
+Windows desktop assistant shell using Electron, React, Vite, and Tailwind CSS v4.
+Conversations and drafts live in the current session. The n8n and Ollama badges
+show Unknown until live status is wired up. Sending a prompt shows a service
+unavailable error and preserves the draft until the prompt bridge is implemented.
 
 ## Setup
 
