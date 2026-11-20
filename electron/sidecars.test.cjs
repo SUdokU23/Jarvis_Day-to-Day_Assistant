@@ -8,7 +8,7 @@ const path = require('node:path');
 const { PassThrough } = require('node:stream');
 const test = require('node:test');
 const { setTimeout: delay } = require('node:timers/promises');
-const { OllamaSidecar, probeOllama } = require('./sidecars.js');
+const { OllamaSidecar, probeModel, probeOllama } = require('./sidecars.js');
 
 test('checks version responses and bounds an HTTP request that never finishes', async (t) => {
   const server = http.createServer((request, response) => {
@@ -35,6 +35,42 @@ async function waitFor(condition) {
   }
 }
 
+test('reports configured model inventory separately from server health', async (t) => {
+  let version = '{"version":"0.1.0"}';
+  let inventory = '{"models":[{"name":"llama3.2:latest"}]}';
+  const server = http.createServer((request, response) => {
+    response.end(request.url === '/api/version' ? version : inventory);
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const sidecar = new OllamaSidecar({
+    model: ' llama3.2:1b ',
+    monitorIntervalMs: 10,
+    probe: (signal) => probeOllama(signal, `${base}/api/version`),
+    checkModel: (signal, model) => probeModel(signal, model, `${base}/api/tags`),
+  });
+  t.after(async () => {
+    await sidecar.stop();
+    await new Promise((resolve) => server.close(resolve));
+  });
+  assert.equal(await probeModel(AbortSignal.timeout(1000), 'llama3.2', `${base}/api/tags`), 'ready');
+  sidecar.start();
+  await waitFor(() => sidecar.status.model?.state === 'missing');
+  assert.equal(sidecar.status.state, 'ready');
+  assert.equal(sidecar.status.model.name, 'llama3.2:1b');
+  inventory = '{}';
+  await waitFor(() => sidecar.status.model?.state === 'check-failed');
+  assert.equal(sidecar.status.state, 'ready');
+  inventory = '{"models":[{"name":"llama3.2:1b"}]}';
+  await waitFor(() => sidecar.status.model?.state === 'ready');
+  version = '{}';
+  await waitFor(() => sidecar.status.state === 'failed');
+  assert.equal(sidecar.status.model, null);
+  version = '{"version":"0.1.0"}';
+  await waitFor(() => sidecar.status.model?.state === 'ready');
+});
+
 function fixture(t, { result = 'absent', startupMs = 2000 } = {}) {
   const child = new EventEmitter();
   child.stdin = new PassThrough();
@@ -48,6 +84,7 @@ function fixture(t, { result = 'absent', startupMs = 2000 } = {}) {
     startupIntervalMs: 5,
     monitorIntervalMs: 10,
     probe: async () => result,
+    checkModel: async () => 'ready',
     launch: () => { launches++; return child; },
   });
   t.after(() => sidecar.stop());

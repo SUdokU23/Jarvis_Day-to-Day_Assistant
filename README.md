@@ -61,7 +61,7 @@ the built renderer disallows inline scripts/styles. Development network access i
 restricted to the Vite origin and its HMR WebSocket.
 
 Jarvis reads runtime settings from its process environment. It does not load
-`.env` files. See `.env.example` for the optional Ollama executable override.
+`.env` files. See `.env.example` for the optional Ollama settings.
 `JARVIS_DEV_URL` is set internally by the development runner; it accepts only an
 HTTP loopback origin and is ignored in packaged mode. Do not set it for `npm start`.
 Do not commit local secrets or runtime data.
@@ -84,12 +84,38 @@ start Ollama separately and Jarvis will detect it.
 On quit, the Job Object closes the launcher and its descendants. Existing
 Ollama instances remain running. Main-process logs include state changes,
 launcher failure codes and output byte counts. Model readiness and sidebar
-status are tracked in issues #8 and #5.
+status are tracked separately. Sidebar integration is tracked in issue #5.
+
+### Install and verify the local model
+
+With Ollama running, open PowerShell and run:
+
+```powershell
+ollama pull llama3.2
+ollama list
+ollama run llama3.2 "Reply with a short greeting."
+```
+
+The default 3B model download is about 2 GB. Allow additional RAM or VRAM for
+inference, which varies with context length and hardware. The `llama3.2:1b`
+variant is about 1.3 GB. Pulling the model requires a network connection.
+Once downloaded, the invocation runs locally without cloud API credentials.
+
+Jarvis checks the local inventory at `/api/tags` and logs the configured
+model's state separately from server health. `ready` means the model is listed,
+`missing` means it needs to be pulled, and `check-failed` means the inventory
+could not be read. Jarvis checks again on the next health cycle. Use the
+invocation command above to verify generation on your hardware.
+
+To use a different model, pull it, set `$env:JARVIS_OLLAMA_MODEL = 'llama3.2:1b'`
+in the PowerShell session that launches Jarvis, and restart Jarvis. Use the
+same identifier in the n8n Ollama model node when configuring the workflow.
 
 ## Contribution workflow
 
-Before implementation, fetch and pull latest `main` with `git pull --ff-only`,
-then create a new issue branch from that updated `main`. Preserve local changes.
+Before every issue, run `git fetch origin`, switch to local `main`, and run
+`git pull --ff-only origin main`. Create a fresh issue branch from that updated
+`main` and preserve local changes.
 Implement and verify on the issue branch, then push it and open a draft pull
 request targeting `main`. Merge only with authorization. Commit the npm lockfile
 so `npm ci` reproduces dependency versions.

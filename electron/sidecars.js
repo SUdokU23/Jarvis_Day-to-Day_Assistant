@@ -6,8 +6,9 @@ const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
 
 const endpoint = 'http://127.0.0.1:11434/api/version';
+const inventoryEndpoint = new URL('/api/tags', endpoint);
 
-function probeOllama(signal, url = endpoint) {
+function probeJson(signal, url, interpret, maxLength) {
   return new Promise((resolve) => {
     const request = http.get(url, { agent: false, signal }, (response) => {
       if (response.statusCode !== 200) {
@@ -19,7 +20,7 @@ function probeOllama(signal, url = endpoint) {
       response.setEncoding('utf8');
       response.on('data', (chunk) => {
         body += chunk;
-        if (body.length > 4096) {
+        if (body.length > maxLength) {
           resolve('unhealthy');
           request.destroy();
         }
@@ -27,8 +28,7 @@ function probeOllama(signal, url = endpoint) {
       response.on('error', () => resolve('unhealthy'));
       response.on('end', () => {
         try {
-          const { version } = JSON.parse(body);
-          resolve(typeof version === 'string' && version.trim() ? 'ready' : 'unhealthy');
+          resolve(interpret(JSON.parse(body)));
         } catch {
           resolve('unhealthy');
         }
@@ -36,6 +36,27 @@ function probeOllama(signal, url = endpoint) {
     });
     request.on('error', (error) => resolve(error.code === 'ECONNREFUSED' ? 'absent' : 'unhealthy'));
   });
+}
+
+function probeOllama(signal, url = endpoint) {
+  return probeJson(signal, url, ({ version }) =>
+    typeof version === 'string' && version.trim() ? 'ready' : 'unhealthy', 4096);
+}
+
+function canonicalModel(name) {
+  const identifier = name.toLowerCase();
+  return identifier.split('/').at(-1).includes(':') ? identifier : `${identifier}:latest`;
+}
+
+async function probeModel(signal, model, url = inventoryEndpoint) {
+  const configured = canonicalModel(model);
+  const result = await probeJson(signal, url, ({ models }) => {
+    if (!Array.isArray(models) || !models.every((entry) => typeof entry?.name === 'string' && entry.name.trim())) {
+      return 'unhealthy';
+    }
+    return models.some(({ name }) => canonicalModel(name) === configured) ? 'ready' : 'missing';
+  }, 1024 * 1024);
+  return result === 'ready' || result === 'missing' ? result : 'check-failed';
 }
 
 function launchOllama() {
@@ -55,15 +76,19 @@ function launchOllama() {
 
 class OllamaSidecar extends EventEmitter {
   #controller = new AbortController();
-  #status = Object.freeze({ service: 'ollama', state: 'stopped', ownership: 'none', code: null });
+  #status = Object.freeze({ service: 'ollama', state: 'stopped', ownership: 'none', code: null, model: null });
+  #model;
   #run;
   #shutdown;
   #owned;
 
-  constructor({ probe = probeOllama, launch = launchOllama, startupMs = 60_000,
+  constructor({ probe = probeOllama, checkModel = probeModel, model = process.env.JARVIS_OLLAMA_MODEL,
+    launch = launchOllama, startupMs = 60_000,
     startupIntervalMs = 500, monitorIntervalMs = 5000, platform = process.platform } = {}) {
     super();
     this.probe = probe;
+    this.checkModel = checkModel;
+    this.#model = model?.trim() || 'llama3.2';
     this.launch = launch;
     this.startupMs = startupMs;
     this.startupIntervalMs = startupIntervalMs;
@@ -73,9 +98,11 @@ class OllamaSidecar extends EventEmitter {
 
   get status() { return this.#status; }
 
-  #publish(state, ownership = 'none', code = null) {
-    if (this.#status.state === state && this.#status.ownership === ownership && this.#status.code === code) return;
-    this.#status = Object.freeze({ service: 'ollama', state, ownership, code });
+  #publish(state, ownership = 'none', code = null, modelState = null) {
+    if (this.#status.state === state && this.#status.ownership === ownership && this.#status.code === code
+        && this.#status.model?.state === (state === 'ready' ? modelState : undefined)) return;
+    const model = state === 'ready' ? Object.freeze({ name: this.#model, state: modelState }) : null;
+    this.#status = Object.freeze({ service: 'ollama', state, ownership, code, model });
     this.emit('status', this.#status);
   }
 
@@ -105,10 +132,17 @@ class OllamaSidecar extends EventEmitter {
     }
 
     while (!signal.aborted) {
+      if (this.#status.state === 'ready') {
+        const status = this.#status;
+        const modelState = await this.checkModel(AbortSignal.any([signal, AbortSignal.timeout(2000)]), this.#model);
+        if (signal.aborted) return;
+        if (this.#status === status) this.#publish(status.state, status.ownership, null, modelState);
+      }
       await delay(this.monitorIntervalMs, undefined, { signal });
       const result = await this.#check();
       if (signal.aborted) return;
-      if (result === 'ready') this.#publish('ready', this.#owned ? 'owned' : 'external');
+      if (result === 'ready') this.#publish('ready', this.#owned ? 'owned' : 'external', null,
+        this.#status.model?.state ?? null);
       else if (this.#status.state === 'ready') {
         this.#publish('failed', this.#owned ? 'owned' : 'none', 'health-check-failed');
       }
@@ -190,4 +224,4 @@ class OllamaSidecar extends EventEmitter {
   }
 }
 
-module.exports = { OllamaSidecar, probeOllama };
+module.exports = { OllamaSidecar, probeModel, probeOllama };

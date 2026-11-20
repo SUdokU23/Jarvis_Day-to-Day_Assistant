@@ -1,6 +1,6 @@
 # Jarvis backlog implementation plan
 
-Prepared 2026-11-14, Europe/Sofia. Updated 2026-11-20. Issues #1, #2, and #3 are implemented on issue branches. See `VERIFICATION.md` for checks and remaining limits.
+Prepared 2026-11-14, Europe/Sofia. Updated 2026-11-21. Issues #1 through #8 are implemented on issue branches. See completion tracking for evidence and remaining checks.
 
 ## Evidence and scope
 
@@ -189,9 +189,9 @@ Verification: rejected navigation/window opening/unsafe URLs/untrusted IPC; insp
 
 ## Completion tracking and estimates
 
-Issue #1 is implemented on `feat/1-desktop-scaffold` and issue #2 on `feat/2-responsive-chat-shell`. Issue #3 is implemented on `feat/3-ollama-lifecycle`; see [Ollama verification](VERIFICATION.md#issue-3-managed-ollama-lifecycle). Its branch includes the #1 scaffold while that prerequisite is awaiting merge. Issues #4–#12 remain planned. Suggested sizes are relative planning judgments.
+Issue #1 is implemented on `feat/1-desktop-scaffold` and issue #2 on `feat/2-responsive-chat-shell`. Issue #3 is implemented on `feat/3-ollama-lifecycle`; see [Ollama verification](VERIFICATION.md#issue-3-managed-ollama-lifecycle). Its branch includes the #1 scaffold while that prerequisite is awaiting merge. Issues #4 through #7 are implemented in PRs #16 through #19. Issue #8 is implemented on `feat/8-ollama-model-readiness` with the pending #3 prerequisite. See [model readiness verification](VERIFICATION.md#issue-8-local-ollama-model-readiness). Issues #9 through #12 remain planned. Suggested sizes are relative planning judgments.
 
-For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. Keep GitHub state unchanged unless the user requests updates. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
+For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. After confirming a pull request has merged, move its linked issue to In Review on the project board. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
 
 ## Broader architecture follow-up, outside these 12 items
 

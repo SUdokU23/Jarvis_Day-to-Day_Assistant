@@ -80,3 +80,9 @@ responds after Jarvis quits.
 
 The Windows launcher uses a [Job Object](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 for process-tree ownership and cleanup.
+
+## Issue #8 local Ollama model readiness
+
+- Eight sidecar tests passed on Windows. The loopback HTTP fixture checked the default `:latest` tag, a configured variant, missing and malformed inventories, server failure, and recovery. The owned launcher cleanup test also passed.
+- The renderer build and both Windows Electron smoke commands passed. The smoke checks exercised startup and shutdown with Ollama absent.
+- Live `llama3.2` generation remains unverified because Ollama was unavailable in the test environment. The README documents installation, model pull, listing, and a local invocation without cloud API credentials. Align the selected model with the n8n workflow in issue #9.
