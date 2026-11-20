@@ -3,6 +3,8 @@
 Windows desktop foundation using Electron, React, Vite, and Tailwind CSS v4.
 Jarvis checks and manages local Ollama and n8n servers on Windows. The desktop
 window opens while the services start and remains usable if either is unavailable.
+Conversations and drafts live in the current session. Sending a prompt shows a
+service unavailable error and preserves the draft until the prompt bridge is implemented.
 
 ## Setup
 

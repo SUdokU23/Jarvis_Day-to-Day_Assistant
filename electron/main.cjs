@@ -32,7 +32,7 @@ if (devUrl) {
 async function createWindow() {
   const window = new BrowserWindow({
     width: 1100, height: 760, minWidth: 480, minHeight: 400,
-    backgroundColor: '#020617', show: !smoke,
+    backgroundColor: '#141716', show: !smoke,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
@@ -50,19 +50,60 @@ async function createWindow() {
         if (main && window.jarvis) {
           resolve({ heading: document.querySelector('h1')?.textContent,
             node: typeof require, process: typeof process,
-            platform: window.jarvis.platform, background: getComputedStyle(main).backgroundColor });
+            platform: window.jarvis.platform, background: getComputedStyle(document.documentElement).backgroundColor });
         } else if (Date.now() > deadline) reject(new Error('Renderer or preload did not initialize'));
         else setTimeout(check, 50);
       }
       check();
     })`);
     const preferences = window.webContents.getLastWebPreferences();
-    if (result.heading !== 'Jarvis' || result.node !== 'undefined' || result.process !== 'undefined'
+    if (result.heading !== 'How can I help?' || result.node !== 'undefined' || result.process !== 'undefined'
         || result.background === 'rgba(0, 0, 0, 0)' || !preferences.contextIsolation
         || preferences.nodeIntegration || !preferences.sandbox) {
       throw new Error(`Smoke check failed: ${JSON.stringify(result)}`);
     }
-    console.log('SMOKE PASS', JSON.stringify(result));
+    const shell = await window.webContents.executeJavaScript(String.raw`new Promise((resolve, reject) => {
+      const input = document.querySelector('textarea');
+      const resize = document.querySelector('[role=separator]');
+      const sidebar = document.querySelector('aside');
+      const badgeCount = sidebar.querySelectorAll('.badge').length;
+      const microphoneDisabled = document.querySelector('[aria-label^=Microphone]').disabled;
+      resize.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      requestAnimationFrame(() => {
+        const resized = resize.getAttribute('aria-valuenow') === '296';
+        const initialHeight = input.clientHeight;
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Hello Jarvis\nSecond line\nThird line');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        requestAnimationFrame(() => {
+          const expanded = input.clientHeight > initialHeight;
+          input.form.requestSubmit();
+          const deadline = Date.now() + 3000;
+          function checkError() {
+            const error = document.querySelector('[role=alert]');
+            if (error) {
+              resolve({ resized, expanded, badgeCount, microphoneDisabled, draftPreserved: input.value.startsWith('Hello Jarvis') });
+            } else if (Date.now() > deadline) reject(new Error('Expected the unavailable prompt service error'));
+            else requestAnimationFrame(checkError);
+          }
+          checkError();
+        });
+      });
+    })`);
+    if (!shell.resized || !shell.expanded || shell.badgeCount !== 2 || !shell.microphoneDisabled || !shell.draftPreserved) {
+      throw new Error(`Chat shell smoke check failed: ${JSON.stringify(shell)}`);
+    }
+    window.setContentSize(600, 500);
+    await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+      const deadline = Date.now() + 3000;
+      function check() {
+        if (window.innerWidth <= 720 && !document.querySelector('aside')) {
+          resolve();
+        } else if (Date.now() > deadline) reject(new Error('Sidebar did not collapse at 600px'));
+        else requestAnimationFrame(check);
+      }
+      check();
+    })`);
+    console.log('SMOKE PASS', JSON.stringify({ ...result, ...shell, narrowSidebarCollapsed: true }));
     app.quit();
   }
 }

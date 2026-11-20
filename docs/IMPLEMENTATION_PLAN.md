@@ -191,7 +191,7 @@ Verification: rejected navigation/window opening/unsafe URLs/untrusted IPC; insp
 
 Issue #1 is implemented on `feat/1-desktop-scaffold` and issue #2 on `feat/2-responsive-chat-shell`. Issue #3 is implemented on `feat/3-ollama-lifecycle`; see [Ollama verification](VERIFICATION.md#issue-3-managed-ollama-lifecycle). Issue #4 is implemented on `feat/4-n8n-lifecycle`; see [n8n verification](VERIFICATION.md#issue-4-managed-n8n-lifecycle). Its branch was created from freshly pulled `main` and carries the pending #1 scaffold and #3 supervisor commits. Issues #5–#12 remain planned. Suggested sizes are relative planning judgments.
 
-For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. Keep GitHub state unchanged unless the user requests updates. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
+For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. After confirming a PR is merged, move its linked issue to In Review on the Jarvis project board. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
 
 ## Broader architecture follow-up, outside these 12 items
 

@@ -59,6 +59,28 @@ outside this issue.
 - [Vite guide](https://vite.dev/guide/)
 - [Tailwind Vite plugin installation](https://tailwindcss.com/docs/installation/using-vite)
 
+## Issue #2 responsive chat shell
+
+Verified on Windows on 2026-11-20 with the repository's Node 24 toolchain.
+The clean lockfile install, Vite production build, and both Electron smoke paths passed:
+
+- `npm ci`
+- `npm run build`
+- `npm run smoke`
+- `npm run dev -- --smoke-test`
+
+The hidden Electron windows verified the empty state, runtime badges, disabled
+microphone, keyboard sidebar resizing, automatic sidebar collapse at 600px,
+multiline composer growth, unavailable-service error and draft preservation,
+and the existing renderer isolation checks.
+
+The shell keeps conversation and draft state in memory. Issue #5 supplies live
+service status and issue #6 supplies prompt transport. The app currently
+exercises the disconnected send path. A successful reply and loading state
+with a live service, pointer drag, and human visual review remain unverified.
+Markdown uses react-markdown with raw HTML disabled, links rendered as plain
+content, and images suppressed.
+
 ## Issue #3 managed Ollama lifecycle
 
 Verified on Windows on 2026-11-20 with Node 24.22.3 and Electron 45.3.2.
