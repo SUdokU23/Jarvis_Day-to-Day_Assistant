@@ -34,3 +34,5 @@ Expect HTTP 200 with JSON such as `{"output":"Hello!"}`. Send a prompt from Jarv
 On 2026-11-21, n8n 2.48.7 on Windows imported the workflow into an isolated profile. A copy with a local test credential was published. A loopback Ollama API fixture checked that the model request used `llama3.2` and contained the submitted prompt. The production webhook returned exactly one string field and preserved quotes and a newline. The idle test webhook returned 404.
 
 Live model generation and the Electron round trip remain pending. Ollama was unavailable on the default loopback endpoint, and the app prerequisites are on separate issue branches.
+
+For issue #10, the n8n 2.48.7 CLI also imported the repository file directly into a new Windows profile with no credentials configured. Inspection confirmed the export is inactive and contains no credential references, authentication headers, or pinned data. The prompt bridge sends `{prompt,timestamp}` to the production path documented in the README and accepts the workflow's non-empty `output` string.

@@ -189,7 +189,7 @@ Verification: rejected navigation/window opening/unsafe URLs/untrusted IPC; insp
 
 ## Completion tracking and estimates
 
-Issues #1 through #8 are implemented on separate issue branches with draft PRs #13 through #20. Issue #9 is implemented on branch `feat/9-n8n-local-ai-workflow`. See [workflow setup and verification](N8N_WORKFLOW.md) for the Windows n8n check and remaining live checks. Issues #10 through #12 remain planned.
+Issues #1 through #8 are implemented on separate issue branches with draft PRs #13 through #20. Issue #9 is implemented on branch `feat/9-n8n-local-ai-workflow`. See [workflow setup and verification](N8N_WORKFLOW.md) for the Windows n8n check and remaining live checks. Issue #10 is implemented on branch `feat/10-n8n-workflow-export`. The README documents clean setup, and the workflow verification record covers the successful credential-free import and response contract. Live Ollama generation and the desktop round trip remain pending. Issues #11 and #12 remain planned.
 
 Suggested sizes are relative planning judgments, not GitHub field values or time commitments. Runtime lifecycle and Windows cleanup are the highest uncertainty; schedule actual dates only after the scaffold and runtime feasibility checks. The W1 prefix is the source milestone label, not evidence this can be completed within a calendar week.
 
