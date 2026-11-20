@@ -106,3 +106,13 @@ Verified 2026-11-21 on Windows with Node 24.22.3 and Electron 45.3.2.
 - `node --test electron/*.test.cjs` passed all 16 tests. The six new tests cover frame and input validation, port configuration, the POST contract, HTTP errors and redirects, malformed and oversized replies, header and body deadlines, and a dropped connection. They use loopback HTTP fixtures.
 - `npm run build`, `npm run smoke`, and `npm run dev -- --smoke-test` passed. Both Electron smoke checks invoke `window.jarvis.sendPrompt` and verify the main-process validation envelope. The smoke commands ran outside the command sandbox to allow the Electron AppContainer to start.
 - Composer wiring and a live n8n-to-Ollama reply depend on #7 and #9.
+
+## Issue #7 composer and assistant replies
+
+Verified on Windows on 2026-11-21. The issue branch was created after fetching
+and pulling main at 0f9c658. It includes the pending chat shell and prompt
+bridge prerequisites from draft PRs #14 and #18.
+
+- `npm ci`, `npm run build`, and all 17 tests from `node --test electron/*.test.cjs` passed. Loopback fixtures cover both JSON reply shapes, malformed replies, and transport errors.
+- Both Electron smoke commands passed. They exercise the real preload IPC validation, confirm Enter submits, check that modified Enter and IME Enter retain their default behavior, and confirm loading clears while the rejected draft remains editable.
+- The successful reply path, retry after a network error, and switching chats during a pending request still need interactive verification. The live n8n and Ollama workflow is tracked in #9.
