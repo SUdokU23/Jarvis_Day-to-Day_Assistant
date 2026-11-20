@@ -116,3 +116,9 @@ bridge prerequisites from draft PRs #14 and #18.
 - `npm ci`, `npm run build`, and all 17 tests from `node --test electron/*.test.cjs` passed. Loopback fixtures cover both JSON reply shapes, malformed replies, and transport errors.
 - Both Electron smoke commands passed. They exercise the real preload IPC validation, confirm Enter submits, check that modified Enter and IME Enter retain their default behavior, and confirm loading clears while the rejected draft remains editable.
 - The successful reply path, retry after a network error, and switching chats during a pending request still need interactive verification. The live n8n and Ollama workflow is tracked in #9.
+
+## Issue #8 local Ollama model readiness
+
+- Eight sidecar tests passed on Windows. The loopback HTTP fixture checked the default `:latest` tag, a configured variant, missing and malformed inventories, server failure, and recovery. The owned launcher cleanup test also passed.
+- The renderer build and both Windows Electron smoke commands passed. The smoke checks exercised startup and shutdown with Ollama absent.
+- Live `llama3.2` generation remains unverified because Ollama was unavailable in the test environment. The README documents installation, model pull, listing, and a local invocation without cloud API credentials. Align the selected model with the n8n workflow in issue #9.

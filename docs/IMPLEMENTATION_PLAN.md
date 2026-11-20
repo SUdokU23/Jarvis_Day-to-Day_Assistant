@@ -191,7 +191,7 @@ Implemented on `fix/12-electron-security` from updated `main` (`0f9c658`) with t
 
 ## Completion tracking and estimates
 
-Issues #1–#10 have implementation branches and draft PRs #13–#22. The issue #11 branch, `feat/11-windows-smoke`, integrates the pending desktop and workflow prerequisites and adds automated Windows smoke coverage. See [the issue #11 results](SMOKE_TESTS.md) for completed checks and live acceptance work. The separate #8 model inventory change remains on its own branch. Issue #12 is implemented on `fix/12-electron-security`. Suggested sizes are relative planning judgments.
+Issues #1–#10 have implementation branches and draft PRs #13–#22. The issue #11 branch, `feat/11-windows-smoke`, integrates the pending desktop and workflow prerequisites and adds automated Windows smoke coverage. See [the issue #11 results](SMOKE_TESTS.md) for completed checks and live acceptance work. The local integration/week1 branch also includes the #8 model inventory change. Issue #12 is implemented on `fix/12-electron-security`. Suggested sizes are relative planning judgments.
 
 For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. After confirming a PR has merged, move its linked issue to In Review on the project board. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
 
