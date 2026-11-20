@@ -1,8 +1,8 @@
 # Jarvis Day-to-Day Assistant
 
 Windows desktop foundation using Electron, React, Vite, and Tailwind CSS v4.
-Jarvis checks and manages the local Ollama server on Windows. The desktop window
-opens while the server starts and remains usable if Ollama is unavailable.
+Jarvis checks and manages local Ollama and n8n servers on Windows. The desktop
+window opens while the services start and remains usable if either is unavailable.
 
 ## Setup
 
@@ -61,7 +61,7 @@ the built renderer disallows inline scripts/styles. Development network access i
 restricted to the Vite origin and its HMR WebSocket.
 
 Jarvis reads runtime settings from its process environment. It does not load
-`.env` files. See `.env.example` for the optional Ollama executable override.
+`.env` files. See `.env.example` for the optional service settings.
 `JARVIS_DEV_URL` is set internally by the development runner; it accepts only an
 HTTP loopback origin and is ignored in packaged mode. Do not set it for `npm start`.
 Do not commit local secrets or runtime data.
@@ -86,10 +86,31 @@ Ollama instances remain running. Main-process logs include state changes,
 launcher failure codes and output byte counts. Model readiness and sidebar
 status are tracked in issues #8 and #5.
 
+## n8n on Windows
+
+Install [n8n with npm](https://docs.n8n.io/hosting/installation/npm/) and make
+`n8n.cmd` and a compatible `node.exe` available on PATH. Set
+`JARVIS_N8N_EXECUTABLE` to an absolute path to the standard npm `n8n.cmd` shim
+or an executable that accepts the `start` argument for a custom installation.
+Set `JARVIS_N8N_PORT` to change the default port of 5678.
+
+Jarvis calls `/healthz` and `/healthz/readiness` on IPv4 loopback before launching.
+A server returning n8n's healthy responses is reused. An unrelated or unresponsive
+listener blocks managed startup on that port. Start an external instance with
+the standard health routes, or choose a free port and restart Jarvis.
+
+Jarvis starts managed n8n on loopback with a persistent profile at
+`<Electron userData>/n8n/.n8n`. n8n generates its encryption key there on first
+launch. Open `http://127.0.0.1:5678` (or your chosen port) to complete n8n's
+owner setup. Keep backups of the profile private. Jarvis waits up to 60 seconds
+for managed startup, checks health every five seconds afterward, and closes only
+its own process tree on quit. Main-process logs report safe lifecycle codes.
+
 ## Contribution workflow
 
-Before implementation, fetch and pull latest `main` with `git pull --ff-only`,
-then create a new issue branch from that updated `main`. Preserve local changes.
+Before each issue, run `git fetch origin`, switch to `main`, and run
+`git pull --ff-only origin main`. Create a new issue branch from that updated
+`main`. Preserve local changes.
 Implement and verify on the issue branch, then push it and open a draft pull
 request targeting `main`. Merge only with authorization. Commit the npm lockfile
 so `npm ci` reproduces dependency versions.
