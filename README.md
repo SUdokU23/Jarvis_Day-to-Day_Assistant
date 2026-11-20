@@ -1,8 +1,8 @@
 # Jarvis Day-to-Day Assistant
 
 Windows desktop foundation using Electron, React, Vite, and Tailwind CSS v4.
-Issue #1 establishes startup and the security boundary. Chat, n8n, and Ollama
-integration are subsequent backlog issues; they are not required to launch this scaffold.
+Jarvis checks and manages the local Ollama server on Windows. The desktop window
+opens while the server starts and remains usable if Ollama is unavailable.
 
 ## Setup
 
@@ -36,6 +36,7 @@ npm ci
 npm run build
 npm run smoke
 npm run dev -- --smoke-test
+node --test electron/sidecars.test.cjs
 ```
 
 Both smoke commands launch real Electron with a hidden window and fail unless
@@ -59,16 +60,38 @@ permits the development-only inline scripts/styles required by Vite Fast Refresh
 the built renderer disallows inline scripts/styles. Development network access is
 restricted to the Vite origin and its HMR WebSocket.
 
-No `.env` file is needed or loaded yet. `.env.example` documents this boundary.
+Jarvis reads runtime settings from its process environment. It does not load
+`.env` files. See `.env.example` for the optional Ollama executable override.
 `JARVIS_DEV_URL` is set internally by the development runner; it accepts only an
 HTTP loopback origin and is ignored in packaged mode. Do not set it for `npm start`.
 Do not commit local secrets or runtime data.
+
+## Ollama on Windows
+
+Install [Ollama for Windows](https://docs.ollama.com/windows). Jarvis probes
+`http://127.0.0.1:11434/api/version` and reuses a running Ollama server.
+When the endpoint refuses the connection, Jarvis starts `ollama serve` in a
+Windows Job Object with `OLLAMA_HOST=127.0.0.1:11434`. It checks the standard
+per-user install directory and then tries `ollama.exe` from PATH. Set
+`JARVIS_OLLAMA_EXECUTABLE` in the launch environment for a custom installation.
+
+Each health request has a two-second timeout, and startup has up to 60 seconds
+to become healthy. Jarvis checks again every five seconds after startup and
+reports recovery if Ollama becomes reachable. If managed startup times out,
+Jarvis closes its process tree. Restart Jarvis to retry managed startup, or
+start Ollama separately and Jarvis will detect it.
+
+On quit, the Job Object closes the launcher and its descendants. Existing
+Ollama instances remain running. Main-process logs include state changes,
+launcher failure codes and output byte counts. Model readiness and sidebar
+status are tracked in issues #8 and #5.
 
 ## Contribution workflow
 
 Before implementation, fetch and pull latest `main` with `git pull --ff-only`,
 then create a new issue branch from that updated `main`. Preserve local changes.
-Implement, verify, and prepare a pull request targeting `main`; do not merge
-automatically. Commit the npm lockfile so `npm ci` reproduces dependency versions.
+Implement and verify on the issue branch, then push it and open a draft pull
+request targeting `main`. Merge only with authorization. Commit the npm lockfile
+so `npm ci` reproduces dependency versions.
 
 The [implementation plan](docs/IMPLEMENTATION_PLAN.md) tracks the remaining backlog.

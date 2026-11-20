@@ -58,3 +58,25 @@ outside this issue.
 - [Electron sandbox](https://www.electronjs.org/docs/latest/tutorial/sandbox)
 - [Vite guide](https://vite.dev/guide/)
 - [Tailwind Vite plugin installation](https://tailwindcss.com/docs/installation/using-vite)
+
+## Issue #3 managed Ollama lifecycle
+
+Verified on Windows on 2026-11-20 with Node 24.22.3 and Electron 45.3.2.
+
+| Check | Result |
+| --- | --- |
+| `node --test electron/sidecars.test.cjs` | Seven tests passed. A local HTTP fixture covers valid and invalid version responses and a hung request. Supervisor doubles cover external reuse, collision, delayed startup, timeout, missing executable, exit, recovery and repeated shutdown. |
+| Windows Job Object test | A real PowerShell launcher started a Node child and grandchild. Both exited after control-pipe closure and after forced launcher termination. |
+| `npm run build` | Production renderer build passed. |
+| `npm run smoke` | Built Electron window passed with an independent HTTP fixture at `127.0.0.1:11434`. Electron reported external ownership, and the same fixture answered after Jarvis quit. |
+| `npm run dev -- --smoke-test` | Development Electron window passed. The real Windows launcher reported missing-executable exit code 71 and shutdown finished. |
+
+The Ollama executable was absent in the verification environment. Live startup
+and cleanup with the Ollama binary and its model runners remain to be confirmed.
+With Ollama installed, quit its tray application, launch Jarvis, wait for
+`ready` with `owned` in the terminal, close Jarvis and verify the endpoint stops
+responding. Repeat with Ollama already running and verify the endpoint still
+responds after Jarvis quits.
+
+The Windows launcher uses a [Job Object](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
+for process-tree ownership and cleanup.
