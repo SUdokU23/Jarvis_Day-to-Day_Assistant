@@ -80,3 +80,20 @@ responds after Jarvis quits.
 
 The Windows launcher uses a [Job Object](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 for process-tree ownership and cleanup.
+
+## Issue #4 managed n8n lifecycle
+
+Verified on Windows on 2026-11-20 with Node 24.22.3 and Electron 45.3.2.
+
+| Check | Result |
+| --- | --- |
+| `node --test electron/sidecars.test.cjs` | 10 passed. HTTP fixtures cover the pre-launch health probe, occupied port, external recovery and survival after shutdown. The Windows npm launcher fixture on a path with spaces verifies profile persistence and environment isolation. Shared supervisor tests cover startup timeout, unexpected exit, repeated shutdown and forced job cleanup. |
+| `npm run build` | Passed. |
+| `npm run smoke` and `npm run dev -- --smoke-test` | Both real Electron paths passed, including safe missing-n8n reporting and app shutdown. Chromium required the normal Windows desktop token for access to sandboxed renderer binaries. |
+
+The managed install uses the
+[n8n health and readiness routes](https://docs.n8n.io/hosting/logging-monitoring/monitoring/),
+[deployment settings](https://docs.n8n.io/hosting/configuration/environment-variables/deployment/),
+and an ephemeral task broker port supported by
+[n8n 2.48.7](https://github.com/n8n-io/n8n/blob/n8n%402.48.7/packages/cli/src/task-runners/task-runner-module.ts).
+Issue #5 tracks live sidebar status. Issue #9 tracks the production workflow.
