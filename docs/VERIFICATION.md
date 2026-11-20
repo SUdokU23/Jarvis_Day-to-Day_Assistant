@@ -90,6 +90,7 @@ Verified on Windows on 2026-11-20 with Node 24.22.3 and Electron 45.3.2.
 | `node --test electron/sidecars.test.cjs` | 10 passed. HTTP fixtures cover the pre-launch health probe, occupied port, external recovery and survival after shutdown. The Windows npm launcher fixture on a path with spaces verifies profile persistence and environment isolation. Shared supervisor tests cover startup timeout, unexpected exit, repeated shutdown and forced job cleanup. |
 | `npm run build` | Passed. |
 | `npm run smoke` and `npm run dev -- --smoke-test` | Both real Electron paths passed, including safe missing-n8n reporting and app shutdown. Chromium required the normal Windows desktop token for access to sandboxed renderer binaries. |
+| Live n8n 2.48.7 on Windows | Passed with the repository's supervisor and an isolated npm install. Managed n8n reached readiness on a custom loopback port twice. A second supervisor detected the ready instance as external and stopping it left the endpoint healthy. Stopping the owner closed the endpoint. The SQLite profile and its generated encryption key persisted across restart. |
 
 The managed install uses the
 [n8n health and readiness routes](https://docs.n8n.io/hosting/logging-monitoring/monitoring/),
