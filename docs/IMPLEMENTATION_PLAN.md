@@ -1,6 +1,6 @@
 # Jarvis backlog implementation plan
 
-Prepared 2026-11-14, Europe/Sofia. Status: planned; implementation not started.
+Prepared 2026-11-14, Europe/Sofia. Updated 2026-11-21. See completion tracking for issue branches and verification.
 
 ## Evidence and scope
 
@@ -189,9 +189,11 @@ Verification: rejected navigation/window opening/unsafe URLs/untrusted IPC; insp
 
 ## Completion tracking and estimates
 
-All items remain **not started** in this local plan. Suggested sizes are relative planning judgments, not GitHub field values or time commitments. Runtime lifecycle and Windows cleanup are the highest uncertainty; schedule actual dates only after the scaffold and runtime feasibility checks. The W1 prefix is the source milestone label, not evidence this can be completed within a calendar week.
+Issues #1 through #8 are implemented on separate issue branches with draft PRs #13 through #20. Issue #9 is implemented on branch `feat/9-n8n-local-ai-workflow`. See [workflow setup and verification](N8N_WORKFLOW.md) for the Windows n8n check and remaining live checks. Issues #10 through #12 remain planned.
 
-For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. Keep GitHub state unchanged unless the user requests updates. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
+Suggested sizes are relative planning judgments, not GitHub field values or time commitments. Runtime lifecycle and Windows cleanup are the highest uncertainty; schedule actual dates only after the scaffold and runtime feasibility checks. The W1 prefix is the source milestone label, not evidence this can be completed within a calendar week.
+
+For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. After confirming a PR merged, move its linked issue to In Review on the project board. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
 
 ## Broader architecture follow-up, outside these 12 items
 
@@ -206,4 +208,4 @@ These need their own issues and acceptance criteria before being treated as comm
 
 ## Resume instructions
 
-Read workspace `AGENTS.md` and `MEMORY.md`, recheck board/issue changes, then start #1. Preserve the root architecture specification. Do not begin Gmail/search/voice/export work by inferring it from placeholders. Keep main/preload security and owned/external runtime separation intact throughout.
+Read workspace `AGENTS.md` and `MEMORY.md`, and recheck the live issue before implementation. For each issue, run `git fetch origin`, switch to local `main`, and run `git pull --ff-only origin main`. Create a fresh branch from that tip, implement and verify there, then push the branch and open a draft PR targeting `main`. Preserve the root architecture specification. Do not begin Gmail/search/voice/export work by inferring it from placeholders. Keep main/preload security and owned/external runtime separation intact throughout.
