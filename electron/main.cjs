@@ -4,6 +4,7 @@ const { pathToFileURL } = require('node:url');
 const { OllamaSidecar } = require('./sidecars.js');
 
 const { createN8nSidecar } = require('./n8n.cjs');
+const { createPromptHandler } = require('./prompt-bridge.cjs');
 
 const smoke = process.argv.includes('--smoke-test');
 const sidecars = [new OllamaSidecar(), createN8nSidecar(app.getPath('userData'))];
@@ -41,7 +42,9 @@ async function createWindow() {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event) => event.preventDefault());
   window.webContents.on('will-attach-webview', (event) => event.preventDefault());
-  await window.loadURL(devUrl || builtUrl);
+  const rendererUrl = new URL(devUrl || builtUrl).href;
+  window.webContents.ipc.handle('send-prompt', createPromptHandler(rendererUrl));
+  await window.loadURL(rendererUrl);
   if (smoke) {
     const result = await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
       const deadline = Date.now() + 10000;
@@ -56,10 +59,12 @@ async function createWindow() {
       }
       check();
     })`);
+    const invalidPrompt = await window.webContents.executeJavaScript("window.jarvis.sendPrompt('  ')");
     const preferences = window.webContents.getLastWebPreferences();
     if (result.heading !== 'Jarvis' || result.node !== 'undefined' || result.process !== 'undefined'
         || result.background === 'rgba(0, 0, 0, 0)' || !preferences.contextIsolation
-        || preferences.nodeIntegration || !preferences.sandbox) {
+        || preferences.nodeIntegration || !preferences.sandbox
+        || invalidPrompt.success !== false || invalidPrompt.error?.code !== 'INVALID_PROMPT') {
       throw new Error(`Smoke check failed: ${JSON.stringify(result)}`);
     }
     console.log('SMOKE PASS', JSON.stringify(result));
