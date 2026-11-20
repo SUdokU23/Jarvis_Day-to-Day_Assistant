@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-# Join the job before launching Ollama so every descendant inherits membership.
+# Join the job before launching the service so every descendant inherits membership.
 # The non-inheritable handle closes even if the launcher is terminated.
 Add-Type -TypeDefinition @'
 using System;
@@ -9,7 +9,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-public static class OllamaJob {
+public static class SidecarJob {
     [StructLayout(LayoutKind.Sequential)]
     private struct BasicLimits {
         public long ProcessTime, JobTime;
@@ -41,7 +41,7 @@ public static class OllamaJob {
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetHandleInformation(IntPtr handle, uint mask, uint flags);
 
-    public static int Run(string executable) {
+    public static int Run(string executable, string args) {
         IntPtr job = CreateJobObject(IntPtr.Zero, null);
         if (job == IntPtr.Zero) return 70;
         // Let Windows close the job handle on launcher exit, preserving its exit code.
@@ -56,7 +56,7 @@ public static class OllamaJob {
         if (parentClosed.IsCompleted) return 0;
         Process child;
         try {
-            child = Process.Start(new ProcessStartInfo(executable, "serve") {
+            child = Process.Start(new ProcessStartInfo(executable, args) {
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true
@@ -73,4 +73,4 @@ public static class OllamaJob {
 }
 '@
 
-exit [OllamaJob]::Run($env:JARVIS_OLLAMA_EXECUTABLE)
+exit [SidecarJob]::Run($env:JARVIS_SIDECAR_EXECUTABLE, $env:JARVIS_SIDECAR_ARGS)

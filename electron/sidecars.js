@@ -7,10 +7,10 @@ const { setTimeout: delay } = require('node:timers/promises');
 
 const endpoint = 'http://127.0.0.1:11434/api/version';
 
-function probeOllama(signal, url = endpoint) {
+function probeJson(signal, url, classify, acceptedStatuses = [200]) {
   return new Promise((resolve) => {
     const request = http.get(url, { agent: false, signal }, (response) => {
-      if (response.statusCode !== 200) {
+      if (!acceptedStatuses.includes(response.statusCode)) {
         resolve('unhealthy');
         request.destroy();
         return;
@@ -27,8 +27,7 @@ function probeOllama(signal, url = endpoint) {
       response.on('error', () => resolve('unhealthy'));
       response.on('end', () => {
         try {
-          const { version } = JSON.parse(body);
-          resolve(typeof version === 'string' && version.trim() ? 'ready' : 'unhealthy');
+          resolve(classify(JSON.parse(body), response.statusCode));
         } catch {
           resolve('unhealthy');
         }
@@ -38,31 +37,43 @@ function probeOllama(signal, url = endpoint) {
   });
 }
 
+function probeOllama(signal, url = endpoint) {
+  return probeJson(signal, url, ({ version }) =>
+    typeof version === 'string' && version.trim() ? 'ready' : 'unhealthy');
+}
+
 function launchOllama() {
   const installed = process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'Ollama', 'ollama.exe');
   const executable = process.env.JARVIS_OLLAMA_EXECUTABLE || (installed && existsSync(installed) ? installed : 'ollama.exe');
+  return launchWindowsJob(executable, 'serve', { ...process.env, OLLAMA_HOST: '127.0.0.1:11434' });
+}
+
+function launchWindowsJob(executable, args, env, cwd) {
   const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   return spawn(powershell, [
     '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'RemoteSigned',
-    '-File', path.join(__dirname, 'ollama-job.ps1'),
+    '-File', path.join(__dirname, 'sidecar-job.ps1'),
   ], {
     shell: false,
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, JARVIS_OLLAMA_EXECUTABLE: executable, OLLAMA_HOST: '127.0.0.1:11434' },
+    cwd,
+    env: { ...env, JARVIS_SIDECAR_EXECUTABLE: executable, JARVIS_SIDECAR_ARGS: args },
   });
 }
 
-class OllamaSidecar extends EventEmitter {
+class SidecarSupervisor extends EventEmitter {
   #controller = new AbortController();
-  #status = Object.freeze({ service: 'ollama', state: 'stopped', ownership: 'none', code: null });
+  #status;
   #run;
   #shutdown;
   #owned;
 
-  constructor({ probe = probeOllama, launch = launchOllama, startupMs = 60_000,
+  constructor({ service, probe, launch, occupiedCode = 'endpoint-unhealthy', startupMs = 60_000,
     startupIntervalMs = 500, monitorIntervalMs = 5000, platform = process.platform } = {}) {
     super();
+    this.#status = Object.freeze({ service, state: 'stopped', ownership: 'none', code: null });
+    this.occupiedCode = occupiedCode;
     this.probe = probe;
     this.launch = launch;
     this.startupMs = startupMs;
@@ -75,7 +86,7 @@ class OllamaSidecar extends EventEmitter {
 
   #publish(state, ownership = 'none', code = null) {
     if (this.#status.state === state && this.#status.ownership === ownership && this.#status.code === code) return;
-    this.#status = Object.freeze({ service: 'ollama', state, ownership, code });
+    this.#status = Object.freeze({ service: this.#status.service, state, ownership, code });
     this.emit('status', this.#status);
   }
 
@@ -94,10 +105,14 @@ class OllamaSidecar extends EventEmitter {
     this.#publish('starting');
     const initial = await this.#check();
     if (signal.aborted) return;
+    if (initial === 'invalid-port') {
+      this.#publish('failed', 'none', initial);
+      return;
+    }
     if (initial === 'ready') {
       this.#publish('ready', 'external');
     } else if (initial !== 'absent') {
-      this.#publish('failed', 'none', 'endpoint-unhealthy');
+      this.#publish('failed', 'none', initial === 'not-ready' ? 'service-not-ready' : this.occupiedCode);
     } else if (this.platform !== 'win32') {
       this.#publish('failed', 'none', 'managed-start-requires-windows');
     } else {
@@ -122,7 +137,14 @@ class OllamaSidecar extends EventEmitter {
   async #startOwned() {
     const signal = this.#controller.signal;
     const deadline = performance.now() + this.startupMs;
-    const child = this.launch();
+    let child;
+    try {
+      child = this.launch();
+    } catch (error) {
+      const code = error.code === 'ENOENT' ? `${this.#status.service}-not-found` : 'launcher-setup-failed';
+      this.#publish('failed', 'none', code);
+      return;
+    }
     const ended = new AbortController();
     const startupSignal = AbortSignal.any([signal, ended.signal]);
     const owned = { child };
@@ -141,7 +163,10 @@ class OllamaSidecar extends EventEmitter {
         this.emit('diagnostic', { exitCode, exitSignal, spawnError, outputBytes });
         if (!signal.aborted && !owned.stopping) {
           const code = spawnError ? 'launcher-spawn-failed' : ({
-            70: 'job-setup-failed', 71: 'ollama-not-found', 72: 'ollama-spawn-failed', 73: 'ollama-exited',
+            70: 'job-setup-failed',
+            71: `${this.#status.service}-not-found`,
+            72: `${this.#status.service}-spawn-failed`,
+            73: `${this.#status.service}-exited`,
           }[exitCode] || 'launcher-exited');
           this.#publish('failed', 'none', code);
         }
@@ -190,4 +215,10 @@ class OllamaSidecar extends EventEmitter {
   }
 }
 
-module.exports = { OllamaSidecar, probeOllama };
+class OllamaSidecar extends SidecarSupervisor {
+  constructor(options) {
+    super({ service: 'ollama', probe: probeOllama, launch: launchOllama, ...options });
+  }
+}
+
+module.exports = { OllamaSidecar, probeOllama, SidecarSupervisor, probeJson, launchWindowsJob };

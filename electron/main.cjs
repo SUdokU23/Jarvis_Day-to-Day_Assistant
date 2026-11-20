@@ -3,13 +3,22 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { OllamaSidecar } = require('./sidecars.js');
 
+const { createN8nSidecar } = require('./n8n.cjs');
+
 const smoke = process.argv.includes('--smoke-test');
-const ollama = new OllamaSidecar();
+const sidecars = [new OllamaSidecar(), createN8nSidecar(app.getPath('userData'))];
 let quitting = false;
 let cleanupComplete = false;
 
-ollama.on('status', (status) => console.info('[ollama]', status));
-ollama.on('diagnostic', (diagnostic) => console.info('[ollama]', diagnostic));
+for (const sidecar of sidecars) {
+  const label = `[${sidecar.status.service}]`;
+  sidecar.on('status', (status) => console.info(label, status));
+  sidecar.on('diagnostic', (diagnostic) => console.info(label, diagnostic));
+}
+
+function stopSidecars() {
+  return Promise.all(sidecars.map((sidecar) => sidecar.stop()));
+}
 const devUrl = !app.isPackaged && process.env.JARVIS_DEV_URL;
 const builtUrl = pathToFileURL(path.join(__dirname, '../dist/index.html')).href;
 
@@ -60,7 +69,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   if (quitting) return;
-  ollama.start();
+  for (const sidecar of sidecars) sidecar.start();
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -79,7 +88,7 @@ app.whenReady().then(async () => {
 async function fail(error) {
   console.error(error);
   quitting = true;
-  await ollama.stop();
+  await stopSidecars();
   if (!smoke) dialog.showErrorBox('Jarvis could not start', 'The renderer could not initialize. See the terminal for details. For npm start, first run npm run build.');
   app.exit(1);
 }
@@ -89,7 +98,7 @@ app.on('before-quit', (event) => {
   event.preventDefault();
   if (quitting) return;
   quitting = true;
-  void ollama.stop().then(() => {
+  void stopSidecars().then(() => {
     cleanupComplete = true;
     app.quit();
   });
