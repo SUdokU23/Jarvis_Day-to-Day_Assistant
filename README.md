@@ -3,6 +3,7 @@
 Windows desktop foundation using Electron, React, Vite, and Tailwind CSS v4.
 Jarvis checks and manages local Ollama and n8n servers on Windows. The desktop
 window opens while the services start and remains usable if either is unavailable.
+The sidebar shows each service's current state and updates as it recovers.
 Conversations and drafts live in the current session. Sending a prompt shows a
 service unavailable error and preserves the draft until the prompt bridge is implemented.
 
@@ -43,7 +44,9 @@ node --test electron/sidecars.test.cjs
 
 Both smoke commands launch real Electron with a hidden window and fail unless
 React renders, Tailwind styles apply, the preload bridge works, and renderer
-Node globals are absent with isolation/sandboxing enabled. They exit automatically.
+Node globals are absent with isolation/sandboxing enabled. They exercise sidebar
+status transitions through the supervisor using a controlled Ollama probe, then
+exit automatically.
 For a visible check, run `npm run dev`, confirm the styled Jarvis welcome screen,
 close it, and confirm port 5173 is released. Repeat with `npm start` after building.
 See [verification evidence](docs/VERIFICATION.md).

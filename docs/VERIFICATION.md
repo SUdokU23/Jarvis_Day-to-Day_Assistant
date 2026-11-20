@@ -119,4 +119,20 @@ The managed install uses the
 [deployment settings](https://docs.n8n.io/hosting/configuration/environment-variables/deployment/),
 and an ephemeral task broker port supported by
 [n8n 2.48.7](https://github.com/n8n-io/n8n/blob/n8n%402.48.7/packages/cli/src/task-runners/task-runner-module.ts).
-Issue #5 tracks live sidebar status. Issue #9 tracks the production workflow.
+Issue #9 tracks the production workflow.
+
+## Issue #5 live sidebar health
+
+Verified on Windows on 2026-11-20 with Node 24.22.3 and Electron 45.3.2.
+
+- `node --test electron/sidecars.test.cjs`: all 10 tests passed.
+- `npm run build`: passed.
+- `npm run smoke` and `npm run dev -- --smoke-test`: both passed. The Ollama
+  badge showed Stopped, Starting, Ready, Failed with a recovery hint, Ready after
+  recovery, and Stopped again. A late snapshot included both services, and
+  reopening the sidebar restored the Ready badge. The test confirmed that a
+  removed listener received no events, the active callback received only the
+  status payload, and the renderer had no Node globals.
+
+The smoke checks used a controlled Ollama probe and the local n8n missing-executable
+path. Live crash and recovery with both service binaries running remains unverified.
