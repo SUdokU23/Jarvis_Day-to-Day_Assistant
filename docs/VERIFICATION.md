@@ -98,3 +98,11 @@ The managed install uses the
 and an ephemeral task broker port supported by
 [n8n 2.48.7](https://github.com/n8n-io/n8n/blob/n8n%402.48.7/packages/cli/src/task-runners/task-runner-module.ts).
 Issue #5 tracks live sidebar status. Issue #9 tracks the production workflow.
+
+## Issue #6: Prompt IPC and n8n bridge
+
+Verified 2026-11-21 on Windows with Node 24.22.3 and Electron 45.3.2.
+
+- `node --test electron/*.test.cjs` passed all 16 tests. The six new tests cover frame and input validation, port configuration, the POST contract, HTTP errors and redirects, malformed and oversized replies, header and body deadlines, and a dropped connection. They use loopback HTTP fixtures.
+- `npm run build`, `npm run smoke`, and `npm run dev -- --smoke-test` passed. Both Electron smoke checks invoke `window.jarvis.sendPrompt` and verify the main-process validation envelope. The smoke commands ran outside the command sandbox to allow the Electron AppContainer to start.
+- Composer wiring and a live n8n-to-Ollama reply depend on #7 and #9.

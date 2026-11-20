@@ -67,17 +67,21 @@ function launchN8n(userFolder, port, env) {
   }, userFolder);
 }
 
-function createN8nSidecar(appData, { env = process.env, ...supervisorOptions } = {}) {
+function readN8nPort(env) {
   const portText = env.JARVIS_N8N_PORT ?? '5678';
   const port = Number(portText);
-  const valid = /^\d+$/.test(portText) && port >= 1 && port <= 65535;
+  return /^\d+$/.test(portText) && port >= 1 && port <= 65535 ? port : null;
+}
+
+function createN8nSidecar(appData, { env = process.env, ...supervisorOptions } = {}) {
+  const port = readN8nPort(env);
   return new SidecarSupervisor({
     service: 'n8n',
-    probe: (signal) => valid ? probeN8n(signal, port) : 'invalid-port',
+    probe: (signal) => port !== null ? probeN8n(signal, port) : 'invalid-port',
     launch: () => launchN8n(path.join(appData, 'n8n'), port, env),
     occupiedCode: 'port-in-use-or-unhealthy',
     ...supervisorOptions,
   });
 }
 
-module.exports = { createN8nSidecar };
+module.exports = { createN8nSidecar, readN8nPort };

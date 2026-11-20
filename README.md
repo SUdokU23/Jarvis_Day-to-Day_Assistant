@@ -106,6 +106,20 @@ owner setup. Keep backups of the profile private. Jarvis waits up to 60 seconds
 for managed startup, checks health every five seconds afterward, and closes only
 its own process tree on quit. Main-process logs report safe lifecycle codes.
 
+## Prompt IPC
+
+`window.jarvis.sendPrompt(prompt)` accepts a string from the Jarvis window.
+Electron trims it, checks the 10,000-character limit, and POSTs
+`{prompt,timestamp}` to `http://127.0.0.1:<port>/webhook/jarvis-prompt`.
+The port uses the same `JARVIS_N8N_PORT` setting as the n8n supervisor.
+The request has a 120-second deadline and a 1 MiB response limit.
+
+An active workflow should return JSON with a non-empty `output` string.
+The bridge returns `{success:true,data:{output}}` or
+`{success:false,error:{code,message,retryable}}`. Jarvis does not log prompt
+contents or upstream response bodies. See the backlog for the composer
+integration (#7) and production workflow (#9).
+
 ## Contribution workflow
 
 Before each issue, run `git fetch origin`, switch to `main`, and run
@@ -114,5 +128,8 @@ Before each issue, run `git fetch origin`, switch to `main`, and run
 Implement and verify on the issue branch, then push it and open a draft pull
 request targeting `main`. Merge only with authorization. Commit the npm lockfile
 so `npm ci` reproduces dependency versions.
+
+After confirming the PR merged, move its linked issue to **In Review** on the
+Jarvis project board.
 
 The [implementation plan](docs/IMPLEMENTATION_PLAN.md) tracks the remaining backlog.

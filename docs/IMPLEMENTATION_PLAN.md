@@ -1,6 +1,6 @@
 # Jarvis backlog implementation plan
 
-Prepared 2026-11-14, Europe/Sofia. Updated 2026-11-20. Issues #1–#4 are implemented on issue branches. See `VERIFICATION.md` for checks and remaining limits.
+Prepared 2026-11-14, Europe/Sofia. Updated 2026-11-21. Issues #1–#6 are implemented on issue branches. See `VERIFICATION.md` for checks and remaining limits.
 
 ## Evidence and scope
 
@@ -189,7 +189,7 @@ Verification: rejected navigation/window opening/unsafe URLs/untrusted IPC; insp
 
 ## Completion tracking and estimates
 
-Issue #1 is implemented on `feat/1-desktop-scaffold` and issue #2 on `feat/2-responsive-chat-shell`. Issue #3 is implemented on `feat/3-ollama-lifecycle`; see [Ollama verification](VERIFICATION.md#issue-3-managed-ollama-lifecycle). Issue #4 is implemented on `feat/4-n8n-lifecycle`; see [n8n verification](VERIFICATION.md#issue-4-managed-n8n-lifecycle). Its branch was created from freshly pulled `main` and carries the pending #1 scaffold and #3 supervisor commits. Issues #5–#12 remain planned. Suggested sizes are relative planning judgments.
+Issues #1–#5 have implementation branches and draft PRs #13–#17. Issue #6 is implemented on `feat/6-prompt-bridge`, created from freshly pulled `main` with the pending n8n prerequisite history. See [prompt bridge verification](VERIFICATION.md#issue-6-prompt-ipc-and-n8n-bridge). Issues #7–#12 remain planned. Suggested sizes are relative planning judgments.
 
 For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. Keep GitHub state unchanged unless the user requests updates. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
 
