@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const { createServer } = require('node:http');
+const { mkdtemp, rm, writeFile } = require('node:fs/promises');
+const { tmpdir } = require('node:os');
+const path = require('node:path');
 const { test } = require('node:test');
 const { createPromptHandler } = require('./prompt-bridge.cjs');
 
@@ -15,8 +18,8 @@ async function withWebhook(t, respond, options) {
     server.closeAllConnections();
     return new Promise((resolve) => server.close(resolve));
   });
-  const env = { JARVIS_N8N_PORT: String(server.address().port) };
-  return createPromptHandler(rendererUrl, { env, ...options });
+  const env = { JARVIS_N8N_PORT: String(server.address().port), ...options?.env };
+  return createPromptHandler(rendererUrl, { ...options, env });
 }
 
 test('validates the top-level renderer, input and n8n port before sending', () => {
@@ -108,4 +111,27 @@ test('normalizes JSON string replies without changing their formatting', async (
   const output = '  **Hello**\n';
   const handle = await withWebhook(t, (_request, response) => response.end(JSON.stringify(output)));
   assert.deepEqual(await handle(sender, 'Hello'), { success: true, data: { output } });
+});
+
+test('sends the main-owned webhook token and returns a redacted authentication error', async (t) => {
+  const folder = await mkdtemp(path.join(tmpdir(), 'jarvis-token-'));
+  t.after(() => rm(folder, { recursive: true, force: true }));
+  const file = path.join(folder, 'token');
+  await writeFile(file, 'fixture-token\n');
+  const received = [];
+  const handle = await withWebhook(t, (request, response) => {
+    received.push(request.headers['x-jarvis-webhook-token']);
+    response.writeHead(403).end('fixture-token');
+  }, { env: { JARVIS_N8N_WEBHOOK_SECRET_FILE: file } });
+  const result = await handle(sender, 'Hello');
+  assert.deepEqual(received, ['fixture-token']);
+  assert.equal(result.error.code, 'WEBHOOK_AUTH_FAILED');
+  assert.doesNotMatch(result.error.message, /fixture-token/);
+});
+
+test('rejects an unreadable configured token file before contacting n8n', () => {
+  const handle = createPromptHandler(rendererUrl, {
+    env: { JARVIS_N8N_WEBHOOK_SECRET_FILE: `${__filename}.missing` },
+  });
+  assert.equal(handle(sender, 'Hello').error.code, 'INVALID_WEBHOOK_SECRET');
 });

@@ -1,4 +1,5 @@
 const { readN8nPort } = require('./n8n.cjs');
+const { readFileSync } = require('node:fs');
 
 const MAX_PROMPT_LENGTH = 10_000;
 const MAX_RESPONSE_BYTES = 1024 * 1024;
@@ -21,19 +22,24 @@ async function readResponse(body) {
   return JSON.parse(parts.join(''));
 }
 
-async function sendToN8n(url, prompt, timeoutMs) {
+async function sendToN8n(url, prompt, timeoutMs, secret) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+    if (secret) headers['X-Jarvis-Webhook-Token'] = secret;
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers,
       body: JSON.stringify({ prompt, timestamp: new Date().toISOString() }),
       redirect: 'manual',
       signal: controller.signal,
     });
     if (response.status === 404) {
       return failure('WEBHOOK_NOT_FOUND', 'Activate the jarvis-prompt workflow in n8n, then retry.', true);
+    }
+    if (response.status === 401 || response.status === 403) {
+      return failure('WEBHOOK_AUTH_FAILED', 'Check the n8n Header Auth credential and the Jarvis webhook secret file.');
     }
     if (!response.ok) {
       return failure('WEBHOOK_HTTP_ERROR', `n8n returned HTTP ${response.status}. Check the webhook and workflow execution in n8n.`,
@@ -63,6 +69,15 @@ async function sendToN8n(url, prompt, timeoutMs) {
 function createPromptHandler(rendererUrl, { env = process.env, timeoutMs = 120_000 } = {}) {
   const port = readN8nPort(env);
   const url = `http://127.0.0.1:${port}/webhook/jarvis-prompt`;
+  const secretFile = env.JARVIS_N8N_WEBHOOK_SECRET_FILE;
+  let secret;
+  if (secretFile) {
+    try {
+      secret = readFileSync(secretFile, 'utf8').trim();
+    } catch {
+      secret = '';
+    }
+  }
   return (event, input) => {
     const frame = event.senderFrame;
     if (!frame || frame.parent !== null || frame.url !== rendererUrl) {
@@ -75,7 +90,10 @@ function createPromptHandler(rendererUrl, { env = process.env, timeoutMs = 120_0
     if (port === null) {
       return failure('INVALID_N8N_PORT', 'Set JARVIS_N8N_PORT to a port from 1 to 65535 and restart Jarvis.');
     }
-    return sendToN8n(url, prompt, timeoutMs);
+    if (secretFile && !/^[\x21-\x7e]{1,256}$/.test(secret)) {
+      return failure('INVALID_WEBHOOK_SECRET', 'Set the Jarvis webhook secret file to a valid token and restart Jarvis.');
+    }
+    return sendToN8n(url, prompt, timeoutMs, secret);
   };
 }
 

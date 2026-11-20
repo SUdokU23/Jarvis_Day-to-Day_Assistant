@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('jarvis', Object.freeze({
   },
   getServiceStatus: () => ipcRenderer.invoke('service-status:get'),
   onServiceStatus(callback) {
+    if (typeof callback !== 'function') throw new TypeError('Expected a service status callback.');
     const listener = (_event, snapshot) => callback(snapshot);
     ipcRenderer.on('service-status:changed', listener);
     return () => ipcRenderer.removeListener('service-status:changed', listener);

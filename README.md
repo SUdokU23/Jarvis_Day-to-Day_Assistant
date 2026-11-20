@@ -53,17 +53,20 @@ That Electron diagnostic flag runs the binary as Node instead of opening the app
 ## Security and configuration
 
 The renderer has `contextIsolation: true`, `nodeIntegration: false`, and
-`sandbox: true`. Preload exposes only static platform metadata under `window.jarvis`;
-it exposes no IPC, filesystem, process execution, or generic Electron APIs.
-Navigation, new windows, webviews, and permission requests are denied. The CSP
-permits the development-only inline scripts/styles required by Vite Fast Refresh;
-the built renderer disallows inline scripts/styles. Development network access is
-restricted to the Vite origin and its HMR WebSocket.
+`sandbox: true`. Preload exposes platform metadata, prompt submission, and
+service status under `window.jarvis`. Main validates the calling frame and its
+renderer URL before handling requests.
+Electron denies renderer navigation, redirects, popups, webviews, downloads,
+and permissions. The development CSP permits inline scripts and styles for
+Vite Fast Refresh and limits connections to the Vite origin and its HMR WebSocket.
+The built HTML carries a CSP that blocks inline scripts, inline style elements,
+and renderer network requests. The built app loads `dist/index.html` directly.
 
 Jarvis reads runtime settings from its process environment. It does not load
 `.env` files. See `.env.example` for the optional service settings.
 `JARVIS_DEV_URL` is set internally by the development runner; it accepts only an
-HTTP loopback origin and is ignored in packaged mode. Do not set it for `npm start`.
+HTTP IPv4 loopback origin with an explicit port and is ignored in packaged mode.
+Do not set it for `npm start`.
 Do not commit local secrets or runtime data.
 
 ## Ollama on Windows
@@ -106,6 +109,24 @@ owner setup. Keep backups of the profile private. Jarvis waits up to 60 seconds
 for managed startup, checks health every five seconds afterward, and closes only
 its own process tree on quit. Main-process logs report safe lifecycle codes.
 
+Keep external n8n and Ollama listeners on loopback too. Jarvis probes local
+endpoints and cannot verify the interfaces an external instance listens on.
+Keep the n8n owner login enabled and avoid forwarding the editor or webhook port.
+Review the workflow's execution retention settings because n8n can store prompts
+and replies in execution history.
+
+The n8n editor login and production webhook authentication are configured
+independently. The shared workflow imports without credentials. To require
+webhook authentication, set the Webhook node's Authentication to **Header Auth**,
+create a credential named for the header `X-Jarvis-Webhook-Token`, and publish
+the workflow. Use a random token of 1–256 printable non-space ASCII characters.
+Store the same value in a UTF-8 text file outside the checkout with Windows
+permissions limited to your account. Set `JARVIS_N8N_WEBHOOK_SECRET_FILE` to
+its absolute path in the environment that launches Jarvis, then restart Jarvis.
+Only the main process reads the token. Keep credentials, token files, and
+execution exports out of source control.
+[n8n Webhook documentation](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/)
+
 ## Prompt IPC
 
 `window.jarvis.sendPrompt(prompt)` accepts a string from the Jarvis window.
@@ -126,7 +147,7 @@ to configure local Ollama and publish the production webhook. See the
 
 ## Contribution workflow
 
-Before each issue, recheck the live issue, run `git fetch origin`, switch to `main`, and run
+Before starting any issue, recheck the live issue, run `git fetch origin`, switch to `main`, and always run
 `git pull --ff-only origin main`. Create a new issue branch from that updated
 `main`. Preserve local changes.
 Implement and verify on the issue branch, then push it and open a draft pull

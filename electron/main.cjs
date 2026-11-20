@@ -51,11 +51,13 @@ function stopSidecars() {
   return Promise.all(sidecars.map((sidecar) => sidecar.stop()));
 }
 const devUrl = !app.isPackaged && process.env.JARVIS_DEV_URL;
-const builtUrl = pathToFileURL(path.join(__dirname, '../dist/index.html')).href;
+const builtPage = path.join(__dirname, '../dist/index.html');
+const builtUrl = pathToFileURL(builtPage).href;
 
 if (devUrl) {
   const url = new URL(devUrl);
-  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password) {
+  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port
+      || url.href !== `${url.origin}/`) {
     throw new Error('Development renderer must use the loopback Vite server.');
   }
 }
@@ -143,14 +145,16 @@ async function createWindow() {
     },
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  window.webContents.on('will-navigate', (event) => event.preventDefault());
+  window.webContents.on('will-frame-navigate', (event) => event.preventDefault());
+  window.webContents.on('will-redirect', (event) => event.preventDefault());
   window.webContents.on('will-attach-webview', (event) => event.preventDefault());
   windows.add(window);
   window.once('closed', () => windows.delete(window));
   const fixture = smoke ? await createChatSmokeFixture() : null;
   try {
     window.webContents.ipc.handle('send-prompt', fixture?.handler(rendererUrl) ?? createPromptHandler(rendererUrl));
-    await window.loadURL(rendererUrl);
+    if (devUrl) await window.loadURL(rendererUrl);
+    else await window.loadFile(builtPage);
     if (fixture) await runSmoke(window, fixture);
   } finally {
     await fixture?.close();
@@ -173,6 +177,21 @@ async function runSmoke(window, fixture) {
       check();
     })`);
     const invalidPrompt = await window.webContents.executeJavaScript("window.jarvis.sendPrompt('  ')");
+    const security = await window.webContents.executeJavaScript(`(() => {
+      const script = document.createElement('script');
+      script.textContent = 'window.jarvisInlineScriptRan = true';
+      document.head.append(script);
+      script.remove();
+      return {
+        inlineScriptRan: window.jarvisInlineScriptRan === true,
+        popupDenied: window.open('about:blank') === null,
+        bridgeKeys: Object.keys(window.jarvis).sort().join(','),
+      };
+    })()`);
+    if (security.inlineScriptRan !== Boolean(devUrl) || !security.popupDenied
+        || security.bridgeKeys !== 'getServiceStatus,onServiceStatus,platform,sendPrompt') {
+      throw new Error('Renderer CSP, popup denial or preload surface check failed.');
+    }
     const preferences = window.webContents.getLastWebPreferences();
     if (result.heading !== 'How can I help?' || result.node !== 'undefined' || result.process !== 'undefined'
         || result.background === 'rgba(0, 0, 0, 0)' || !preferences.contextIsolation
@@ -237,13 +256,25 @@ app.whenReady().then(async () => {
   }
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const connect = devUrl ? ` ${new URL(devUrl).origin} ${new URL(devUrl).origin.replace('http:', 'ws:')}` : '';
-    // React Fast Refresh inserts an inline preamble; Vite also injects development styles.
-    const inline = devUrl ? " 'unsafe-inline'" : '';
-    const policy = `default-src 'self'; script-src 'self'${inline}; style-src 'self'${inline}; img-src 'self' data:; connect-src 'self'${connect}; object-src 'none'; base-uri 'none'; frame-src 'none'`;
-    callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [policy] } });
-  });
+  session.defaultSession.on('will-download', (event) => event.preventDefault());
+  if (devUrl) {
+    const origin = new URL(devUrl).origin;
+    // React Fast Refresh inserts an inline preamble and Vite injects development styles.
+    const policy = [
+      "default-src 'none'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'",
+      `connect-src ${origin} ${origin.replace('http:', 'ws:')}`, "img-src 'self'",
+      "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'",
+    ].join('; ');
+    session.defaultSession.webRequest.onHeadersReceived({ urls: [`${origin}/*`] }, (details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
+      if (details.resourceType === 'mainFrame') {
+        const key = Object.keys(responseHeaders).find((name) => name.toLowerCase() === 'content-security-policy')
+          ?? 'Content-Security-Policy';
+        responseHeaders[key] = [...(responseHeaders[key] ?? []), policy];
+      }
+      callback({ responseHeaders });
+    });
+  }
   await createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow().catch(fail);
@@ -251,7 +282,7 @@ app.whenReady().then(async () => {
 }).catch(fail);
 
 async function fail(error) {
-  console.error(error);
+  console.error('Jarvis startup failed.', smoke ? error : { type: error.name });
   quitting = true;
   await stopSidecars();
   if (!smoke) dialog.showErrorBox('Jarvis could not start', 'The renderer could not initialize. See the terminal for details. For npm start, first run npm run build.');

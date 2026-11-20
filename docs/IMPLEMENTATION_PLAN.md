@@ -187,9 +187,11 @@ Priority P0. Dependencies: #1, #6. Proposed size M.
 
 Verification: rejected navigation/window opening/unsafe URLs/untrusted IPC; inspected dev/prod CSP and BrowserWindow options; configured loopback bindings; no secret or prompt content in source/default logs; production renderer starts without Vite. Perform safeguards early and final audit before #11.
 
+Implemented on `fix/12-electron-security` from updated `main` (`0f9c658`) with the pending #11 baseline through `1cc160b`. Both Windows Electron smoke commands passed with sandbox enabled and confirmed inline script policy, popup denial, and the preload allowlist. All 19 Node tests and the production build passed. Bridge tests covered sender and input validation, token forwarding to loopback, and safe authentication errors. Review confirmed the navigation and redirect handlers, managed loopback bindings, and credential-free workflow export. The token check used a loopback fixture. Publishing an authenticated workflow in a real n8n instance and installer validation remain unverified.
+
 ## Completion tracking and estimates
 
-Issues #1–#10 have implementation branches and draft PRs #13–#22. The issue #11 branch, `feat/11-windows-smoke`, integrates the pending desktop and workflow prerequisites and adds automated Windows smoke coverage. See [the issue #11 results](SMOKE_TESTS.md) for completed checks and live acceptance work. The separate #8 model inventory change remains on its own branch. Issue #12 remains planned. Suggested sizes are relative planning judgments.
+Issues #1–#10 have implementation branches and draft PRs #13–#22. The issue #11 branch, `feat/11-windows-smoke`, integrates the pending desktop and workflow prerequisites and adds automated Windows smoke coverage. See [the issue #11 results](SMOKE_TESTS.md) for completed checks and live acceptance work. The separate #8 model inventory change remains on its own branch. Issue #12 is implemented on `fix/12-electron-security`. Suggested sizes are relative planning judgments.
 
 For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. After confirming a PR has merged, move its linked issue to In Review on the project board. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
 
