@@ -1,6 +1,6 @@
 # Jarvis backlog implementation plan
 
-Prepared 2026-11-14, Europe/Sofia. Status: planned; implementation not started.
+Prepared 2026-11-14, Europe/Sofia. Updated 2026-11-21. Issues #1–#7 are implemented on issue branches. See `VERIFICATION.md` for checks and remaining limits.
 
 ## Evidence and scope
 
@@ -187,11 +187,13 @@ Priority P0. Dependencies: #1, #6. Proposed size M.
 
 Verification: rejected navigation/window opening/unsafe URLs/untrusted IPC; inspected dev/prod CSP and BrowserWindow options; configured loopback bindings; no secret or prompt content in source/default logs; production renderer starts without Vite. Perform safeguards early and final audit before #11.
 
+Implemented on `fix/12-electron-security` from updated `main` (`0f9c658`) with the pending #11 baseline through `1cc160b`. Both Windows Electron smoke commands passed with sandbox enabled and confirmed inline script policy, popup denial, and the preload allowlist. All 19 Node tests and the production build passed. Bridge tests covered sender and input validation, token forwarding to loopback, and safe authentication errors. Review confirmed the navigation and redirect handlers, managed loopback bindings, and credential-free workflow export. The token check used a loopback fixture. Publishing an authenticated workflow in a real n8n instance and installer validation remain unverified.
+
 ## Completion tracking and estimates
 
-All items remain **not started** in this local plan. Suggested sizes are relative planning judgments, not GitHub field values or time commitments. Runtime lifecycle and Windows cleanup are the highest uncertainty; schedule actual dates only after the scaffold and runtime feasibility checks. The W1 prefix is the source milestone label, not evidence this can be completed within a calendar week.
+Issues #1–#10 have implementation branches and draft PRs #13–#22. The issue #11 branch, `feat/11-windows-smoke`, integrates the pending desktop and workflow prerequisites and adds automated Windows smoke coverage. See [the issue #11 results](SMOKE_TESTS.md) for completed checks and live acceptance work. The local integration/week1 branch also includes the #8 model inventory change. Issue #12 is implemented on `fix/12-electron-security`. Suggested sizes are relative planning judgments.
 
-For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. Keep GitHub state unchanged unless the user requests updates. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
+For each implemented issue, record its files/commit, checks run and outcomes, unresolved limitations, and any approved change in scope here or in linked verification records. After confirming a PR has merged, move its linked issue to In Review on the project board. A finished milestone requires all 12 issue acceptance checklists and a working clean-profile setup, not merely mocked tests or a successful renderer build.
 
 ## Broader architecture follow-up, outside these 12 items
 
@@ -206,4 +208,4 @@ These need their own issues and acceptance criteria before being treated as comm
 
 ## Resume instructions
 
-Read workspace `AGENTS.md` and `MEMORY.md`, recheck board/issue changes, then start #1. Preserve the root architecture specification. Do not begin Gmail/search/voice/export work by inferring it from placeholders. Keep main/preload security and owned/external runtime separation intact throughout.
+Read workspace `AGENTS.md` and `MEMORY.md`, then recheck the live issue and any prerequisite PRs. For each issue, fetch origin, switch to `main`, and run `git pull --ff-only origin main`. Branch from that updated `main`, implement and verify, then push and open a draft PR targeting `main`. Preserve the root architecture specification. Do not begin Gmail/search/voice/export work by inferring it from placeholders. Keep main/preload security and owned/external runtime separation intact throughout.
